@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import { config } from './config/env';
 import { testConnection } from './database/connection';
 import { errorHandler } from './middleware/errorHandler';
@@ -17,6 +18,13 @@ app.use('/api', routes);
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Serve frontend static files in production
+const frontendPath = path.join(__dirname, '../../frontend/dist');
+app.use(express.static(frontendPath));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
 // Error handling

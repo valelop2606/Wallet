@@ -6,8 +6,8 @@ Aplicacion de gestion financiera personal para organizar dinero, registrar movim
 
 | Servicio | URL |
 |----------|-----|
-| Frontend | [wallet-valelop2606.vercel.app](https://wallet-valelop2606.vercel.app) |
-| Backend API | Render (auto-deploy desde main) |
+| Frontend | [wallet-frontend-lake.vercel.app](https://wallet-frontend-lake.vercel.app) |
+| Backend API | [wallet-backend-rwj5.onrender.com](https://wallet-backend-rwj5.onrender.com/health) |
 | Base de datos | Neon PostgreSQL (free tier permanente) |
 
 > El backend en Render free se suspende tras ~15 min de inactividad. La primera peticion puede tardar ~30s.
@@ -168,13 +168,13 @@ JWT_EXPIRES_IN=7d
 
 En produccion se usa `DATABASE_URL` en lugar de las variables individuales de DB.
 
-### Frontend
+### Frontend (`frontend/.env.production`)
 
 ```env
-VITE_API_URL=https://tu-backend.onrender.com/api
+VITE_API_URL=https://wallet-backend-rwj5.onrender.com/api
 ```
 
-En desarrollo no se necesita (usa proxy de Vite a `/api`).
+En desarrollo no se necesita (usa proxy de Vite hacia `localhost:3001/api`).
 
 ---
 
@@ -185,15 +185,14 @@ En desarrollo no se necesita (usa proxy de Vite a `/api`).
 |--------|------|-------------|
 | POST | /api/auth/register | Crear cuenta |
 | POST | /api/auth/login | Iniciar sesion |
-| GET | /api/auth/me | Obtener usuario actual |
 
 ### Money Sources
 | Metodo | Ruta | Descripcion |
 |--------|------|-------------|
-| GET | /api/money-sources | Listar fuentes |
-| POST | /api/money-sources | Crear fuente |
-| PUT | /api/money-sources/:id | Actualizar fuente |
-| DELETE | /api/money-sources/:id | Eliminar fuente |
+| GET | /api/sources | Listar fuentes |
+| POST | /api/sources | Crear fuente |
+| PUT | /api/sources/:id | Actualizar fuente |
+| DELETE | /api/sources/:id | Eliminar fuente |
 
 ### Transactions
 | Metodo | Ruta | Descripcion |
@@ -241,15 +240,16 @@ En desarrollo no se necesita (usa proxy de Vite a `/api`).
 
 ### Backend — Render
 - Web Service conectado a `main`
-- Root Directory: `backend`
-- Build: `npm install && npm run build`
+- Root Directory: `.` (raiz del monorepo)
+- Build: `npm run render-build`
 - Start: `npm start`
-- Variable: `DATABASE_URL` (connection string de Neon)
+- Variables: `DATABASE_URL` (connection string de Neon), `NODE_ENV=production`
 
 ### Frontend — Vercel
 - Framework: Vite
 - Root Directory: `frontend`
-- Variable: `VITE_API_URL` (URL del backend + /api)
+- Build: `npm run build` (ejecuta `tsc -b && vite build`)
+- La URL del backend se configura en `frontend/.env.production`
 
 ### Base de datos — Neon
 - PostgreSQL free tier (permanente)
@@ -264,8 +264,11 @@ En desarrollo no se necesita (usa proxy de Vite a `/api`).
 npm run dev              # Backend + Frontend simultaneo
 npm run dev:backend      # Solo backend (ts-node-dev)
 npm run dev:frontend     # Solo frontend (Vite)
+npm run build            # Build completo (frontend + backend)
 npm run build:backend    # Compilar TypeScript backend
 npm run build:frontend   # Build produccion frontend
+npm run render-build     # Build para Render (instala devDeps + build completo)
+npm start                # Arranca el backend compilado (produccion)
 ```
 
 ---

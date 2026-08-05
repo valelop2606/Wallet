@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://wallet-backend-url.onrender.com/api/:path*"
+      "destination": "https://wallet-backend-rwj5.onrender.com/api/:path*"
     },
     {
       "source": "/((?!api/).*)",

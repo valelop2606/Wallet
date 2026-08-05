@@ -9,6 +9,7 @@ router.use(authenticate);
 
 router.get('/', asyncHandler(controller.list));
 router.get('/:id', asyncHandler(controller.getOne));
+router.get('/:id/modifications', asyncHandler(controller.getModifications));
 router.post('/', asyncHandler(controller.create));
 router.put('/:id', asyncHandler(controller.update));
 router.post('/:id/void', asyncHandler(controller.voidOne));

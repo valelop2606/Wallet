@@ -105,7 +105,6 @@ export async function markPurchased(req: AuthRequest, res: Response): Promise<vo
     type: 'expense',
     amount: purchaseAmount,
     description: `Compra: ${objective.name}`,
-    category: 'purchase',
     source_id,
   });
 

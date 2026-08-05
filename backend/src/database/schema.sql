@@ -111,3 +111,17 @@ CREATE INDEX IF NOT EXISTS idx_objectives_user ON objectives(user_id);
 CREATE INDEX IF NOT EXISTS idx_objectives_project ON objectives(project_id);
 CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements(user_id);
+
+-- Transaction Modifications (audit log for amount changes)
+CREATE TABLE IF NOT EXISTS transaction_modifications (
+  id SERIAL PRIMARY KEY,
+  transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  field VARCHAR(50) NOT NULL,
+  old_value TEXT,
+  new_value TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tx_modifications_transaction ON transaction_modifications(transaction_id);
+

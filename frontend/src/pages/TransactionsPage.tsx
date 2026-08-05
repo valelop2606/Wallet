@@ -10,12 +10,19 @@ interface MoneySource {
   balance: string;
 }
 
+interface Modification {
+  id: number;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+}
+
 interface Transaction {
   id: number;
   type: string;
   amount: string;
   description: string | null;
-  category: string | null;
   source_id: number | null;
   destination_id: number | null;
   source_name: string | null;
@@ -23,26 +30,28 @@ interface Transaction {
   date: string;
 }
 
+interface TransactionDetail extends Transaction {
+  modifications: Modification[];
+}
+
 function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [sources, setSources] = useState<MoneySource[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [showEdit, setShowEdit] = useState<Transaction | null>(null);
+  const [showEdit, setShowEdit] = useState<TransactionDetail | null>(null);
+  const [showHistory, setShowHistory] = useState<TransactionDetail | null>(null);
   const [txType, setTxType] = useState<'expense' | 'income' | 'transfer'>('expense');
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
   const [sourceId, setSourceId] = useState('');
   const [destinationId, setDestinationId] = useState('');
-  const [date, setDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Edit form state
+  const [editAmount, setEditAmount] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editCategory, setEditCategory] = useState('');
-  const [editDate, setEditDate] = useState('');
 
   const loadData = async () => {
     try {
@@ -70,8 +79,6 @@ function TransactionsPage() {
         type: txType,
         amount: parseFloat(amount),
         description: description || undefined,
-        category: category || undefined,
-        date: date || undefined,
       };
       if (txType === 'expense') body.source_id = parseInt(sourceId);
       if (txType === 'income') body.destination_id = parseInt(destinationId);
@@ -101,9 +108,8 @@ function TransactionsPage() {
       await apiFetch(`/transactions/${showEdit.id}`, {
         method: 'PUT',
         body: JSON.stringify({
-          description: editDescription || undefined,
-          category: editCategory || undefined,
-          date: editDate || undefined,
+          description: editDescription,
+          amount: parseFloat(editAmount),
         }),
       });
       setShowEdit(null);
@@ -115,35 +121,66 @@ function TransactionsPage() {
   };
 
   const handleVoid = async (tx: Transaction) => {
-    if (!confirm('¿Anular esta transacción? Se revertirá el saldo.')) return;
+    if (!confirm('¿Anular esta transaccion? Se revertira el saldo.')) return;
     try {
       await apiFetch(`/transactions/${tx.id}/void`, { method: 'POST' });
+      setShowEdit(null);
       loadData();
     } catch {}
   };
 
-  const openEditModal = (tx: Transaction) => {
-    setEditDescription(tx.description || '');
-    setEditCategory(tx.category || '');
-    setEditDate(tx.date ? tx.date.slice(0, 10) : '');
-    setShowEdit(tx);
+  const openEditModal = async (tx: Transaction) => {
+    try {
+      const detail = await apiFetch<TransactionDetail>(`/transactions/${tx.id}`);
+      setEditAmount(parseFloat(detail.amount).toString());
+      setEditDescription(detail.description || '');
+      setShowEdit(detail);
+    } catch {}
+  };
+
+  const openHistoryModal = async (tx: Transaction) => {
+    try {
+      const detail = await apiFetch<TransactionDetail>(`/transactions/${tx.id}`);
+      setShowHistory(detail);
+    } catch {}
   };
 
   const resetCreateForm = () => {
     setAmount('');
     setDescription('');
-    setCategory('');
     setSourceId('');
     setDestinationId('');
-    setDate('');
   };
 
-  const fmt = (n: string) => {
-    return parseFloat(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const fmt = (n: string | number) => {
+    const num = typeof n === 'string' ? parseFloat(n) : n;
+    return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   };
 
   const formatDate = (d: string) => {
     return new Date(d).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+  };
+
+  const formatDateTime = (d: string) => {
+    return new Date(d).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const txLabel = (type: string) => {
+    if (type === 'expense') return 'Gasto';
+    if (type === 'income') return 'Ingreso';
+    return 'Transferencia';
+  };
+
+  const txIcon = (type: string) => {
+    if (type === 'expense') return '💸';
+    if (type === 'income') return '💵';
+    return '↔️';
+  };
+
+  const fieldLabel = (field: string) => {
+    if (field === 'amount') return 'Monto';
+    if (field === 'description') return 'Descripcion';
+    return field;
   };
 
   if (loading) {
@@ -159,7 +196,7 @@ function TransactionsPage() {
       <div className="max-w-lg mx-auto px-4 py-2 space-y-4">
         {/* Quick Actions */}
         <section className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm text-gray-500 mb-3">¿Qué quieres hacer?</p>
+          <p className="text-sm text-gray-500 mb-3">¿Que quieres hacer?</p>
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => { setTxType('expense'); setShowCreate(true); }}
@@ -191,14 +228,13 @@ function TransactionsPage() {
             <h3 className="text-sm font-medium text-gray-500 mb-2">Historial</h3>
             {transactions.map((t) => (
               <div key={t.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openHistoryModal(t)}>
                   <p className="text-sm text-gray-700">
-                    {t.type === 'expense' ? '💸' : t.type === 'income' ? '💵' : '↔️'}{' '}
-                    {t.description || (t.type === 'expense' ? 'Gasto' : t.type === 'income' ? 'Ingreso' : 'Transferencia')}
+                    {txIcon(t.type)} {txLabel(t.type)}
+                    {t.description ? ` — ${t.description}` : ''}
                   </p>
                   <p className="text-xs text-gray-400">
                     {formatDate(t.date)} • {t.source_name || t.destination_name || ''}
-                    {t.category ? ` • ${t.category}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -213,7 +249,7 @@ function TransactionsPage() {
                     onClick={() => openEditModal(t)}
                     className="text-gray-400 hover:text-primary-600 p-1 transition-colors"
                     title="Editar"
-                    aria-label="Editar transacción"
+                    aria-label="Editar transaccion"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -296,7 +332,7 @@ function TransactionsPage() {
 
           <div>
             <label htmlFor="tx-desc" className="block text-sm font-medium text-gray-700 mb-1">
-              Descripcion
+              Descripcion (opcional)
             </label>
             <input
               id="tx-desc"
@@ -305,33 +341,6 @@ function TransactionsPage() {
               onChange={(e) => setDescription(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="Ej: Mini, Almuerzo..."
-            />
-          </div>
-
-          <div>
-            <label htmlFor="tx-category" className="block text-sm font-medium text-gray-700 mb-1">
-              Categoria (opcional)
-            </label>
-            <input
-              id="tx-category"
-              type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Ej: Comida, Transporte..."
-            />
-          </div>
-
-          <div>
-            <label htmlFor="tx-date" className="block text-sm font-medium text-gray-700 mb-1">
-              Fecha (opcional)
-            </label>
-            <input
-              id="tx-date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
 
@@ -354,22 +363,37 @@ function TransactionsPage() {
         <form onSubmit={handleEdit} className="space-y-4">
           {showEdit && (
             <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
-              <p>
-                {showEdit.type === 'expense' ? '💸 Gasto' : showEdit.type === 'income' ? '💵 Ingreso' : '↔️ Transferencia'}
-                {' — '}
-                <span className="font-semibold">{fmt(showEdit.amount)} Bs</span>
+              <p className="font-medium">
+                {txIcon(showEdit.type)} {txLabel(showEdit.type)}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                {showEdit.source_name && `De: ${showEdit.source_name}`}
-                {showEdit.source_name && showEdit.destination_name && ' → '}
-                {showEdit.destination_name && `A: ${showEdit.destination_name}`}
+                {formatDate(showEdit.date)}
+                {showEdit.source_name && ` • De: ${showEdit.source_name}`}
+                {showEdit.destination_name && ` • A: ${showEdit.destination_name}`}
               </p>
             </div>
           )}
 
           <div>
+            <label htmlFor="edit-amount" className="block text-sm font-medium text-gray-700 mb-1">
+              Monto
+            </label>
+            <input
+              id="edit-amount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={editAmount}
+              onChange={(e) => setEditAmount(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div>
             <label htmlFor="edit-desc" className="block text-sm font-medium text-gray-700 mb-1">
-              Descripcion
+              Descripcion (opcional)
             </label>
             <input
               id="edit-desc"
@@ -381,32 +405,24 @@ function TransactionsPage() {
             />
           </div>
 
-          <div>
-            <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700 mb-1">
-              Categoria
-            </label>
-            <input
-              id="edit-category"
-              type="text"
-              value={editCategory}
-              onChange={(e) => setEditCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Ej: Comida, Transporte..."
-            />
-          </div>
-
-          <div>
-            <label htmlFor="edit-date" className="block text-sm font-medium text-gray-700 mb-1">
-              Fecha
-            </label>
-            <input
-              id="edit-date"
-              type="date"
-              value={editDate}
-              onChange={(e) => setEditDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
+          {/* Modification History */}
+          {showEdit && showEdit.modifications.length > 0 && (
+            <div className="border-t border-gray-100 pt-3">
+              <p className="text-xs font-medium text-gray-500 mb-2">Historial de cambios</p>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {showEdit.modifications.map((mod) => (
+                  <div key={mod.id} className="text-xs text-gray-400 bg-gray-50 rounded p-2">
+                    <span className="font-medium text-gray-600">{fieldLabel(mod.field)}</span>
+                    {': '}
+                    <span className="line-through text-red-400">{mod.old_value || '(vacio)'}</span>
+                    {' → '}
+                    <span className="text-green-600">{mod.new_value || '(vacio)'}</span>
+                    <span className="block text-gray-300 mt-0.5">{formatDateTime(mod.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2">
             <button
@@ -425,6 +441,61 @@ function TransactionsPage() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Transaction Detail / History Modal */}
+      <Modal
+        isOpen={showHistory !== null}
+        onClose={() => setShowHistory(null)}
+        title="Detalle de transaccion"
+      >
+        {showHistory && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">
+                  {txIcon(showHistory.type)} {txLabel(showHistory.type)}
+                </span>
+                <span className={`text-lg font-bold ${
+                  showHistory.type === 'expense' ? 'text-red-500' : showHistory.type === 'income' ? 'text-green-600' : 'text-gray-800'
+                }`}>
+                  {showHistory.type === 'expense' ? '-' : showHistory.type === 'income' ? '+' : ''}{fmt(showHistory.amount)} Bs
+                </span>
+              </div>
+              {showHistory.description && (
+                <p className="text-sm text-gray-500">{showHistory.description}</p>
+              )}
+              <p className="text-xs text-gray-400 mt-2">
+                {formatDateTime(showHistory.date)}
+                {showHistory.source_name && ` • De: ${showHistory.source_name}`}
+                {showHistory.destination_name && ` • A: ${showHistory.destination_name}`}
+              </p>
+            </div>
+
+            {showHistory.modifications.length > 0 ? (
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-2">Historial de modificaciones</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {showHistory.modifications.map((mod) => (
+                    <div key={mod.id} className="bg-gray-50 rounded-lg p-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-700">{fieldLabel(mod.field)}</span>
+                        <span className="text-xs text-gray-400">{formatDateTime(mod.created_at)}</span>
+                      </div>
+                      <div className="mt-1 text-xs">
+                        <span className="line-through text-red-400">{mod.field === 'amount' && mod.old_value ? `${fmt(mod.old_value)} Bs` : mod.old_value || '(vacio)'}</span>
+                        {' → '}
+                        <span className="text-green-600 font-medium">{mod.field === 'amount' && mod.new_value ? `${fmt(mod.new_value)} Bs` : mod.new_value || '(vacio)'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-2">Sin modificaciones.</p>
+            )}
+          </div>
+        )}
       </Modal>
     </>
   );

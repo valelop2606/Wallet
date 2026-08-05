@@ -6,7 +6,6 @@ export interface Transaction {
   type: 'income' | 'expense' | 'transfer';
   amount: number;
   description: string | null;
-  category: string | null;
   source_id: number | null;
   destination_id: number | null;
   date: Date;
@@ -19,26 +18,22 @@ export interface CreateTransactionInput {
   type: 'income' | 'expense' | 'transfer';
   amount: number;
   description?: string;
-  category?: string;
   source_id?: number;
   destination_id?: number;
-  date?: string;
 }
 
 export async function createTransaction(userId: number, input: CreateTransactionInput): Promise<Transaction> {
   const result = await pool.query(
-    `INSERT INTO transactions (user_id, type, amount, description, category, source_id, destination_id, date)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO transactions (user_id, type, amount, description, source_id, destination_id, date)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())
      RETURNING *`,
     [
       userId,
       input.type,
       input.amount,
       input.description || null,
-      input.category || null,
       input.source_id || null,
       input.destination_id || null,
-      input.date || new Date().toISOString(),
     ]
   );
   return result.rows[0];
@@ -72,36 +67,30 @@ export async function getTransactionById(id: number, userId: number): Promise<Tr
   return result.rows[0] || null;
 }
 
-export async function updateTransaction(
+export async function updateTransactionDescription(
   id: number,
   userId: number,
-  input: Partial<CreateTransactionInput>
+  description: string | null
 ): Promise<Transaction | null> {
-  const fields: string[] = [];
-  const values: unknown[] = [];
-  let paramIndex = 1;
-
-  if (input.description !== undefined) {
-    fields.push(`description = $${paramIndex++}`);
-    values.push(input.description);
-  }
-  if (input.category !== undefined) {
-    fields.push(`category = $${paramIndex++}`);
-    values.push(input.category);
-  }
-  if (input.date !== undefined) {
-    fields.push(`date = $${paramIndex++}`);
-    values.push(input.date);
-  }
-
-  if (fields.length === 0) return getTransactionById(id, userId);
-
-  fields.push(`updated_at = NOW()`);
-  values.push(id, userId);
-
   const result = await pool.query(
-    `UPDATE transactions SET ${fields.join(', ')} WHERE id = $${paramIndex++} AND user_id = $${paramIndex} AND status = 'active' RETURNING *`,
-    values
+    `UPDATE transactions SET description = $1, updated_at = NOW()
+     WHERE id = $2 AND user_id = $3 AND status = 'active'
+     RETURNING *`,
+    [description, id, userId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function updateTransactionAmount(
+  id: number,
+  userId: number,
+  newAmount: number
+): Promise<Transaction | null> {
+  const result = await pool.query(
+    `UPDATE transactions SET amount = $1, updated_at = NOW()
+     WHERE id = $2 AND user_id = $3 AND status = 'active'
+     RETURNING *`,
+    [newAmount, id, userId]
   );
   return result.rows[0] || null;
 }

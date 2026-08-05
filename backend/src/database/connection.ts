@@ -1,13 +1,20 @@
 import { Pool } from 'pg';
 import { config } from '../config/env';
 
-export const pool = new Pool({
-  host: config.db.host,
-  port: config.db.port,
-  database: config.db.name,
-  user: config.db.user,
-  password: config.db.password,
-});
+const poolConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    }
+  : {
+      host: config.db.host,
+      port: config.db.port,
+      database: config.db.name,
+      user: config.db.user,
+      password: config.db.password,
+    };
+
+export const pool = new Pool(poolConfig);
 
 export async function testConnection(): Promise<void> {
   try {

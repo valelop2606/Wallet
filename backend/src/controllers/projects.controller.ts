@@ -10,7 +10,7 @@ import {
   assignMoneyToProject,
   getProjectWithProgress,
 } from '../models/project.model';
-import { getObjectivesByProject } from '../models/objective.model';
+import { getObjectivesByProject, getObjectiveById, updateObjective, getObjectivesByUser } from '../models/objective.model';
 import { createAchievement } from '../models/achievement.model';
 
 export async function list(req: AuthRequest, res: Response): Promise<void> {
@@ -21,7 +21,7 @@ export async function list(req: AuthRequest, res: Response): Promise<void> {
       const objectives = await getObjectivesByProject(p.id, req.userId!);
       const total = objectives.reduce((sum, o) => sum + Number(o.target_amount), 0);
       const current = objectives.reduce((sum, o) => sum + Number(o.current_amount), 0);
-      return { ...p, objectives_count: objectives.length, progress_total: total, progress_current: current };
+      return { ...p, objectives_count: objectives.length, progress_total: total, progress_current: current, objectives };
     })
   );
   res.json({ projects: enriched });
@@ -64,6 +64,50 @@ export async function assignMoney(req: AuthRequest, res: Response): Promise<void
   const project = await assignMoneyToProject(Number(req.params.id), req.userId!, amount);
   if (!project) throw new AppError('Project not found or invalid amount', 400);
   res.json(project);
+}
+
+export async function linkObjective(req: AuthRequest, res: Response): Promise<void> {
+  const projectId = Number(req.params.id);
+  const { objective_id } = req.body;
+
+  if (!objective_id) throw new AppError('objective_id is required', 400);
+
+  // Verify project exists
+  const project = await getProjectById(projectId, req.userId!);
+  if (!project) throw new AppError('Project not found', 404);
+
+  // Verify objective exists and belongs to user
+  const objective = await getObjectiveById(objective_id, req.userId!);
+  if (!objective) throw new AppError('Objective not found', 404);
+
+  // Link objective to project
+  const updated = await updateObjective(objective_id, req.userId!, { project_id: projectId });
+  res.json(updated);
+}
+
+export async function unlinkObjective(req: AuthRequest, res: Response): Promise<void> {
+  const projectId = Number(req.params.id);
+  const objectiveId = Number(req.params.objectiveId);
+
+  // Verify project exists
+  const project = await getProjectById(projectId, req.userId!);
+  if (!project) throw new AppError('Project not found', 404);
+
+  // Verify objective exists and belongs to this project
+  const objective = await getObjectiveById(objectiveId, req.userId!);
+  if (!objective) throw new AppError('Objective not found', 404);
+  if (objective.project_id !== projectId) throw new AppError('Objective does not belong to this project', 400);
+
+  // Unlink (set project_id to null)
+  const updated = await updateObjective(objectiveId, req.userId!, { project_id: null as unknown as number });
+  res.json(updated);
+}
+
+export async function getAvailableObjectives(req: AuthRequest, res: Response): Promise<void> {
+  // Return objectives that are not linked to any project
+  const allObjectives = await getObjectivesByUser(req.userId!);
+  const available = allObjectives.filter((o) => o.project_id === null && o.status !== 'purchased');
+  res.json({ objectives: available });
 }
 
 export async function markCompleted(req: AuthRequest, res: Response): Promise<void> {

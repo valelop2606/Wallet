@@ -20,6 +20,12 @@ interface MoneySource {
   balance: string;
 }
 
+interface Project {
+  id: number;
+  name: string;
+  status: string;
+}
+
 function ObjectivesPage() {
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,9 +33,12 @@ function ObjectivesPage() {
   const [showAssign, setShowAssign] = useState<Objective | null>(null);
   const [showUnassign, setShowUnassign] = useState<Objective | null>(null);
   const [showPurchase, setShowPurchase] = useState<Objective | null>(null);
+  const [showLinkProject, setShowLinkProject] = useState<Objective | null>(null);
 
   // Sources for purchase modal
   const [sources, setSources] = useState<MoneySource[]>([]);
+  // Projects for linking
+  const [projects, setProjects] = useState<Project[]>([]);
 
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
@@ -37,6 +46,7 @@ function ObjectivesPage() {
   const [assignAmount, setAssignAmount] = useState('');
   const [unassignAmount, setUnassignAmount] = useState('');
   const [purchaseSourceId, setPurchaseSourceId] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const loadData = () => {
@@ -49,6 +59,12 @@ function ObjectivesPage() {
   const loadSources = () => {
     apiFetch<{ sources: MoneySource[] }>('/sources')
       .then((data) => setSources(data.sources))
+      .catch(() => {});
+  };
+
+  const loadProjects = () => {
+    apiFetch<{ projects: Project[] }>('/projects')
+      .then((data) => setProjects(data.projects.filter((p) => p.status === 'active')))
       .catch(() => {});
   };
 
@@ -117,9 +133,39 @@ function ObjectivesPage() {
     } catch {} finally { setSubmitting(false); }
   };
 
+  const handleLinkToProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showLinkProject || !selectedProjectId) return;
+    setSubmitting(true);
+    try {
+      await apiFetch(`/projects/${selectedProjectId}/link-objective`, {
+        method: 'POST',
+        body: JSON.stringify({ objective_id: showLinkProject.id }),
+      });
+      setSelectedProjectId('');
+      setShowLinkProject(null);
+      loadData();
+    } catch {} finally { setSubmitting(false); }
+  };
+
+  const handleUnlinkFromProject = async (obj: Objective) => {
+    if (!obj.project_id) return;
+    try {
+      await apiFetch(`/projects/${obj.project_id}/unlink-objective/${obj.id}`, {
+        method: 'POST',
+      });
+      loadData();
+    } catch {}
+  };
+
   const openPurchaseModal = (obj: Objective) => {
     loadSources();
     setShowPurchase(obj);
+  };
+
+  const openLinkProjectModal = (obj: Objective) => {
+    loadProjects();
+    setShowLinkProject(obj);
   };
 
   const fmt = (n: string | number) => {
@@ -178,7 +224,25 @@ function ObjectivesPage() {
                     />
                   </div>
 
-                  <p className={`text-xs font-medium mb-3 ${status.color}`}>{status.label}</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className={`text-xs font-medium ${status.color}`}>{status.label}</p>
+                    {obj.project_id ? (
+                      <button
+                        onClick={() => handleUnlinkFromProject(obj)}
+                        className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                        title="Quitar del proyecto"
+                      >
+                        📁 En proyecto <span className="underline">quitar</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => openLinkProjectModal(obj)}
+                        className="text-xs text-gray-400 hover:text-primary-600 transition-colors"
+                      >
+                        + Asignar a proyecto
+                      </button>
+                    )}
+                  </div>
 
                   {/* Action buttons based on status */}
                   <div className="flex flex-wrap gap-2">
@@ -195,7 +259,7 @@ function ObjectivesPage() {
                         onClick={() => setShowUnassign(obj)}
                         className="text-xs px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors"
                       >
-                        − Quitar dinero
+                        - Quitar dinero
                       </button>
                     )}
                     {obj.status === 'completed' && (
@@ -210,7 +274,7 @@ function ObjectivesPage() {
                           onClick={() => setShowUnassign(obj)}
                           className="text-xs px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors"
                         >
-                          − Quitar dinero
+                          - Quitar dinero
                         </button>
                       </>
                     )}
@@ -222,7 +286,7 @@ function ObjectivesPage() {
         ) : (
           <section className="bg-white rounded-2xl p-5 shadow-sm">
             <EmptyState
-              message="Tus sueños empiezan aquí. Crea tu primer objetivo."
+              message="Tus suenos empiezan aqui. Crea tu primer objetivo."
               actionLabel="+ Nuevo objetivo"
               onAction={() => setShowCreate(true)}
             />
@@ -263,7 +327,7 @@ function ObjectivesPage() {
             <label htmlFor="obj-name" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
             <input id="obj-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Ej: Audífonos" />
+              placeholder="Ej: Audifonos" />
           </div>
           <div>
             <label htmlFor="obj-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto</label>
@@ -273,10 +337,10 @@ function ObjectivesPage() {
               placeholder="800.00" />
           </div>
           <div>
-            <label htmlFor="obj-desc" className="block text-sm font-medium text-gray-700 mb-1">Descripción (opcional)</label>
+            <label htmlFor="obj-desc" className="block text-sm font-medium text-gray-700 mb-1">Descripcion (opcional)</label>
             <input id="obj-desc" type="text" value={description} onChange={(e) => setDescription(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Una descripción corta..." />
+              placeholder="Una descripcion corta..." />
           </div>
           <button type="submit" disabled={submitting}
             className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
@@ -342,13 +406,13 @@ function ObjectivesPage() {
                 Vas a marcar <span className="font-bold">{showPurchase.name}</span> como comprado.
               </p>
               <p className="text-sm text-yellow-700 mt-1">
-                Esto registrará un gasto de <span className="font-bold">{fmt(showPurchase.current_amount)} Bs</span> y el dinero se descontará de la fuente seleccionada.
+                Esto registrara un gasto de <span className="font-bold">{fmt(showPurchase.current_amount)} Bs</span> y el dinero se descontara de la fuente seleccionada.
               </p>
             </div>
           )}
           <div>
             <label htmlFor="purchase-source" className="block text-sm font-medium text-gray-700 mb-1">
-              ¿De dónde salió el dinero?
+              ¿De donde salio el dinero?
             </label>
             <select
               id="purchase-source"
@@ -369,6 +433,46 @@ function ObjectivesPage() {
             className="w-full py-2 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
             {submitting ? 'Procesando...' : '🛒 Confirmar compra'}
           </button>
+        </form>
+      </Modal>
+
+      {/* Link to Project Modal */}
+      <Modal isOpen={showLinkProject !== null} onClose={() => setShowLinkProject(null)} title="Asignar a proyecto">
+        <form onSubmit={handleLinkToProject} className="space-y-4">
+          {showLinkProject && (
+            <p className="text-sm text-gray-500">
+              Objetivo: <span className="font-medium text-gray-700">{showLinkProject.name}</span>
+            </p>
+          )}
+          {projects.length > 0 ? (
+            <>
+              <div>
+                <label htmlFor="link-project" className="block text-sm font-medium text-gray-700 mb-1">
+                  Seleccionar proyecto
+                </label>
+                <select
+                  id="link-project"
+                  value={selectedProjectId}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Seleccionar...</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button type="submit" disabled={submitting || !selectedProjectId}
+                className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+                {submitting ? 'Asignando...' : 'Asignar a proyecto'}
+              </button>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-4">
+              No hay proyectos activos. Crea uno primero en la seccion de Proyectos.
+            </p>
+          )}
         </form>
       </Modal>
     </>

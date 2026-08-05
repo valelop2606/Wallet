@@ -58,7 +58,7 @@ export async function getObjectivesByProject(projectId: number, userId: number):
 export async function updateObjective(
   id: number,
   userId: number,
-  input: Partial<CreateObjectiveInput & { status: string }>
+  input: Partial<CreateObjectiveInput & { status: string; project_id: number | null }>
 ): Promise<Objective | null> {
   const fields: string[] = [];
   const values: unknown[] = [];

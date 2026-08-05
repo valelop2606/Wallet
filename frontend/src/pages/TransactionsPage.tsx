@@ -15,6 +15,9 @@ interface Transaction {
   type: string;
   amount: string;
   description: string | null;
+  category: string | null;
+  source_id: number | null;
+  destination_id: number | null;
   source_name: string | null;
   destination_name: string | null;
   date: string;
@@ -25,13 +28,21 @@ function TransactionsPage() {
   const [sources, setSources] = useState<MoneySource[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showEdit, setShowEdit] = useState<Transaction | null>(null);
   const [txType, setTxType] = useState<'expense' | 'income' | 'transfer'>('expense');
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
   const [sourceId, setSourceId] = useState('');
   const [destinationId, setDestinationId] = useState('');
+  const [date, setDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Edit form state
+  const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editDate, setEditDate] = useState('');
 
   const loadData = async () => {
     try {
@@ -59,6 +70,8 @@ function TransactionsPage() {
         type: txType,
         amount: parseFloat(amount),
         description: description || undefined,
+        category: category || undefined,
+        date: date || undefined,
       };
       if (txType === 'expense') body.source_id = parseInt(sourceId);
       if (txType === 'income') body.destination_id = parseInt(destinationId);
@@ -71,16 +84,58 @@ function TransactionsPage() {
         method: 'POST',
         body: JSON.stringify(body),
       });
-      setAmount('');
-      setDescription('');
-      setSourceId('');
-      setDestinationId('');
+      resetCreateForm();
       setShowCreate(false);
       loadData();
     } catch {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showEdit) return;
+    setSubmitting(true);
+    try {
+      await apiFetch(`/transactions/${showEdit.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          description: editDescription || undefined,
+          category: editCategory || undefined,
+          date: editDate || undefined,
+        }),
+      });
+      setShowEdit(null);
+      loadData();
+    } catch {
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleVoid = async (tx: Transaction) => {
+    if (!confirm('¿Anular esta transacción? Se revertirá el saldo.')) return;
+    try {
+      await apiFetch(`/transactions/${tx.id}/void`, { method: 'POST' });
+      loadData();
+    } catch {}
+  };
+
+  const openEditModal = (tx: Transaction) => {
+    setEditDescription(tx.description || '');
+    setEditCategory(tx.category || '');
+    setEditDate(tx.date ? tx.date.slice(0, 10) : '');
+    setShowEdit(tx);
+  };
+
+  const resetCreateForm = () => {
+    setAmount('');
+    setDescription('');
+    setCategory('');
+    setSourceId('');
+    setDestinationId('');
+    setDate('');
   };
 
   const fmt = (n: string) => {
@@ -136,22 +191,35 @@ function TransactionsPage() {
             <h3 className="text-sm font-medium text-gray-500 mb-2">Historial</h3>
             {transactions.map((t) => (
               <div key={t.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-700">
                     {t.type === 'expense' ? '💸' : t.type === 'income' ? '💵' : '↔️'}{' '}
                     {t.description || (t.type === 'expense' ? 'Gasto' : t.type === 'income' ? 'Ingreso' : 'Transferencia')}
                   </p>
                   <p className="text-xs text-gray-400">
                     {formatDate(t.date)} • {t.source_name || t.destination_name || ''}
+                    {t.category ? ` • ${t.category}` : ''}
                   </p>
                 </div>
-                <span
-                  className={`text-sm font-semibold ${
-                    t.type === 'expense' ? 'text-red-500' : t.type === 'income' ? 'text-green-600' : 'text-gray-700'
-                  }`}
-                >
-                  {t.type === 'expense' ? '-' : t.type === 'income' ? '+' : ''}{fmt(t.amount)} Bs
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-sm font-semibold ${
+                      t.type === 'expense' ? 'text-red-500' : t.type === 'income' ? 'text-green-600' : 'text-gray-700'
+                    }`}
+                  >
+                    {t.type === 'expense' ? '-' : t.type === 'income' ? '+' : ''}{fmt(t.amount)} Bs
+                  </span>
+                  <button
+                    onClick={() => openEditModal(t)}
+                    className="text-gray-400 hover:text-primary-600 p-1 transition-colors"
+                    title="Editar"
+                    aria-label="Editar transacción"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             ))}
           </section>
@@ -165,7 +233,7 @@ function TransactionsPage() {
       {/* Create Transaction Modal */}
       <Modal
         isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
+        onClose={() => { setShowCreate(false); resetCreateForm(); }}
         title={txType === 'expense' ? 'Registrar gasto' : txType === 'income' ? 'Registrar ingreso' : 'Transferir'}
       >
         <form onSubmit={handleCreate} className="space-y-4">
@@ -228,7 +296,7 @@ function TransactionsPage() {
 
           <div>
             <label htmlFor="tx-desc" className="block text-sm font-medium text-gray-700 mb-1">
-              Descripción
+              Descripcion
             </label>
             <input
               id="tx-desc"
@@ -240,6 +308,33 @@ function TransactionsPage() {
             />
           </div>
 
+          <div>
+            <label htmlFor="tx-category" className="block text-sm font-medium text-gray-700 mb-1">
+              Categoria (opcional)
+            </label>
+            <input
+              id="tx-category"
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="Ej: Comida, Transporte..."
+            />
+          </div>
+
+          <div>
+            <label htmlFor="tx-date" className="block text-sm font-medium text-gray-700 mb-1">
+              Fecha (opcional)
+            </label>
+            <input
+              id="tx-date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
           <button
             type="submit"
             disabled={submitting}
@@ -247,6 +342,88 @@ function TransactionsPage() {
           >
             {submitting ? 'Guardando...' : 'Guardar'}
           </button>
+        </form>
+      </Modal>
+
+      {/* Edit Transaction Modal */}
+      <Modal
+        isOpen={showEdit !== null}
+        onClose={() => setShowEdit(null)}
+        title="Editar transaccion"
+      >
+        <form onSubmit={handleEdit} className="space-y-4">
+          {showEdit && (
+            <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
+              <p>
+                {showEdit.type === 'expense' ? '💸 Gasto' : showEdit.type === 'income' ? '💵 Ingreso' : '↔️ Transferencia'}
+                {' — '}
+                <span className="font-semibold">{fmt(showEdit.amount)} Bs</span>
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {showEdit.source_name && `De: ${showEdit.source_name}`}
+                {showEdit.source_name && showEdit.destination_name && ' → '}
+                {showEdit.destination_name && `A: ${showEdit.destination_name}`}
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="edit-desc" className="block text-sm font-medium text-gray-700 mb-1">
+              Descripcion
+            </label>
+            <input
+              id="edit-desc"
+              type="text"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="Descripcion..."
+            />
+          </div>
+
+          <div>
+            <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700 mb-1">
+              Categoria
+            </label>
+            <input
+              id="edit-category"
+              type="text"
+              value={editCategory}
+              onChange={(e) => setEditCategory(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="Ej: Comida, Transporte..."
+            />
+          </div>
+
+          <div>
+            <label htmlFor="edit-date" className="block text-sm font-medium text-gray-700 mb-1">
+              Fecha
+            </label>
+            <input
+              id="edit-date"
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
+            >
+              {submitting ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+            <button
+              type="button"
+              onClick={() => showEdit && handleVoid(showEdit)}
+              className="py-2 px-4 bg-red-50 text-red-600 rounded-lg font-medium hover:bg-red-100 transition-colors"
+            >
+              Anular
+            </button>
+          </div>
         </form>
       </Modal>
     </>

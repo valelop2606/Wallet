@@ -1,9 +1,15 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiFetch } from '../services/api';
 
 interface User {
   id: number;
   email: string;
   name: string;
+}
+
+interface AuthResponse {
+  user: User;
+  token: string;
 }
 
 interface AuthContextType {
@@ -34,18 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function login(email: string, password: string): Promise<void> {
-    const response = await fetch('/api/auth/login', {
+    const data = await apiFetch<AuthResponse>('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Login failed');
-    }
-
-    const data = await response.json();
     setUser(data.user);
     setToken(data.token);
     localStorage.setItem('wallet_token', data.token);
@@ -53,18 +52,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function register(email: string, password: string, name: string): Promise<void> {
-    const response = await fetch('/api/auth/register', {
+    const data = await apiFetch<AuthResponse>('/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name }),
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Registration failed');
-    }
-
-    const data = await response.json();
     setUser(data.user);
     setToken(data.token);
     localStorage.setItem('wallet_token', data.token);

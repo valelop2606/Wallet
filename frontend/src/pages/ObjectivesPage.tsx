@@ -47,7 +47,7 @@ function ObjectivesPage() {
   };
 
   const loadSources = () => {
-    apiFetch<{ sources: MoneySource[] }>('/money-sources')
+    apiFetch<{ sources: MoneySource[] }>('/sources')
       .then((data) => setSources(data.sources))
       .catch(() => {});
   };

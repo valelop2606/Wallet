@@ -8,6 +8,7 @@
     "dev:frontend": "npm run dev --workspace=frontend",
     "build:backend": "npm run build --workspace=backend",
     "build:frontend": "npm run build --workspace=frontend",
+    "render-build": "npm install --include=dev && npm run build:frontend && npm run build:backend",
     "build": "npm run build:frontend && npm run build:backend",
     "start": "node backend/dist/index.js",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\""

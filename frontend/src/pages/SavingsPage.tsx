@@ -1,0 +1,182 @@
+import { useEffect, useState } from 'react';
+import { apiFetch } from '../services/api';
+import PageHeader from '../components/PageHeader';
+import EmptyState from '../components/EmptyState';
+import Modal from '../components/Modal';
+
+interface Saving {
+  id: number;
+  name: string;
+  description: string | null;
+  current_amount: string;
+  goal_amount: string | null;
+}
+
+function SavingsPage() {
+  const [savings, setSavings] = useState<Saving[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showDeposit, setShowDeposit] = useState<number | null>(null);
+
+  const [name, setName] = useState('');
+  const [goalAmount, setGoalAmount] = useState('');
+  const [depositAmount, setDepositAmount] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadData = () => {
+    apiFetch<{ savings: Saving[]; total: number }>('/savings')
+      .then((data) => { setSavings(data.savings); setTotal(data.total); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await apiFetch('/savings', {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          goal_amount: goalAmount ? parseFloat(goalAmount) : undefined,
+        }),
+      });
+      setName(''); setGoalAmount('');
+      setShowCreate(false);
+      loadData();
+    } catch {} finally { setSubmitting(false); }
+  };
+
+  const handleDeposit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showDeposit) return;
+    setSubmitting(true);
+    try {
+      await apiFetch(`/savings/${showDeposit}/deposit`, {
+        method: 'POST',
+        body: JSON.stringify({ amount: parseFloat(depositAmount) }),
+      });
+      setDepositAmount('');
+      setShowDeposit(null);
+      loadData();
+    } catch {} finally { setSubmitting(false); }
+  };
+
+  const fmt = (n: string | number) => {
+    const num = typeof n === 'string' ? parseFloat(n) : n;
+    return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-gray-400 text-sm">Cargando...</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <PageHeader title="Mis ahorros" />
+      <div className="max-w-lg mx-auto px-4 py-5 space-y-4">
+        {/* Total */}
+        <section className="bg-white rounded-2xl p-5 shadow-sm">
+          <p className="text-sm text-gray-500 mb-1">Total ahorrado</p>
+          <p className="text-2xl font-bold text-gray-900">{fmt(total)} Bs</p>
+        </section>
+
+        {/* Savings List */}
+        {savings.length > 0 ? (
+          <section className="space-y-3">
+            {savings.map((s) => {
+              const current = parseFloat(s.current_amount);
+              const goal = s.goal_amount ? parseFloat(s.goal_amount) : null;
+              const progress = goal ? Math.min((current / goal) * 100, 100) : null;
+              return (
+                <div
+                  key={s.id}
+                  className="bg-white rounded-2xl p-5 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => setShowDeposit(s.id)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-900">💵 {s.name}</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {fmt(s.current_amount)}{goal ? ` / ${fmt(s.goal_amount!)}` : ''} Bs
+                    </span>
+                  </div>
+                  {progress !== null && (
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div
+                        className="bg-primary-500 h-2 rounded-full transition-all"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </section>
+        ) : (
+          <section className="bg-white rounded-2xl p-5 shadow-sm">
+            <EmptyState
+              message="Aún no tienes ahorros. Crea tu primer espacio de ahorro."
+              actionLabel="+ Nuevo ahorro"
+              onAction={() => setShowCreate(true)}
+            />
+          </section>
+        )}
+
+        <button
+          onClick={() => setShowCreate(true)}
+          className="w-full py-3 bg-white rounded-2xl shadow-sm text-primary-600 font-medium text-sm hover:bg-gray-50 transition-colors"
+        >
+          + Nuevo ahorro
+        </button>
+      </div>
+
+      {/* Create Modal */}
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Nuevo ahorro">
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div>
+            <label htmlFor="sav-name" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+            <input id="sav-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="Ej: Fondo de emergencia" />
+          </div>
+          <div>
+            <label htmlFor="sav-goal" className="block text-sm font-medium text-gray-700 mb-1">Meta (opcional)</label>
+            <input id="sav-goal" type="number" min="0" step="0.01" value={goalAmount} onChange={(e) => setGoalAmount(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="0.00" />
+          </div>
+          <button type="submit" disabled={submitting}
+            className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+            {submitting ? 'Guardando...' : 'Guardar'}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Deposit Modal */}
+      <Modal isOpen={showDeposit !== null} onClose={() => setShowDeposit(null)} title="Depositar">
+        <form onSubmit={handleDeposit} className="space-y-4">
+          <div>
+            <label htmlFor="dep-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto</label>
+            <input id="dep-amount" type="number" min="0.01" step="0.01" value={depositAmount}
+              onChange={(e) => setDepositAmount(e.target.value)} required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
+              placeholder="0.00" />
+          </div>
+          <button type="submit" disabled={submitting}
+            className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+            {submitting ? 'Depositando...' : 'Depositar'}
+          </button>
+        </form>
+      </Modal>
+    </>
+  );
+}
+
+export default SavingsPage;

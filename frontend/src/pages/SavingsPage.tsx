@@ -12,17 +12,29 @@ interface Saving {
   goal_amount: string | null;
 }
 
+interface MoneySource {
+  id: number;
+  name: string;
+  type: string;
+  balance: string;
+}
+
 function SavingsPage() {
   const [savings, setSavings] = useState<Saving[]>([]);
+  const [sources, setSources] = useState<MoneySource[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showDeposit, setShowDeposit] = useState<Saving | null>(null);
+  const [showWithdraw, setShowWithdraw] = useState<Saving | null>(null);
   const [showEdit, setShowEdit] = useState<Saving | null>(null);
 
   const [name, setName] = useState('');
   const [goalAmount, setGoalAmount] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
+  const [depositSourceId, setDepositSourceId] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawDestId, setWithdrawDestId] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Edit form
@@ -34,6 +46,12 @@ function SavingsPage() {
       .then((data) => { setSavings(data.savings); setTotal(data.total); })
       .catch(() => {})
       .finally(() => setLoading(false));
+  };
+
+  const loadSources = () => {
+    apiFetch<{ sources: MoneySource[] }>('/sources')
+      .then((data) => setSources(data.sources))
+      .catch(() => {});
   };
 
   useEffect(() => { loadData(); }, []);
@@ -57,15 +75,38 @@ function SavingsPage() {
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!showDeposit) return;
+    if (!showDeposit || !depositSourceId) return;
     setSubmitting(true);
     try {
       await apiFetch(`/savings/${showDeposit.id}/deposit`, {
         method: 'POST',
-        body: JSON.stringify({ amount: parseFloat(depositAmount) }),
+        body: JSON.stringify({
+          amount: parseFloat(depositAmount),
+          source_id: parseInt(depositSourceId),
+        }),
       });
       setDepositAmount('');
+      setDepositSourceId('');
       setShowDeposit(null);
+      loadData();
+    } catch {} finally { setSubmitting(false); }
+  };
+
+  const handleWithdraw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showWithdraw || !withdrawDestId) return;
+    setSubmitting(true);
+    try {
+      await apiFetch(`/savings/${showWithdraw.id}/withdraw`, {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: parseFloat(withdrawAmount),
+          destination_id: parseInt(withdrawDestId),
+        }),
+      });
+      setWithdrawAmount('');
+      setWithdrawDestId('');
+      setShowWithdraw(null);
       loadData();
     } catch {} finally { setSubmitting(false); }
   };
@@ -85,6 +126,16 @@ function SavingsPage() {
       setShowEdit(null);
       loadData();
     } catch {} finally { setSubmitting(false); }
+  };
+
+  const openDepositModal = (s: Saving) => {
+    loadSources();
+    setShowDeposit(s);
+  };
+
+  const openWithdrawModal = (s: Saving) => {
+    loadSources();
+    setShowWithdraw(s);
   };
 
   const openEditModal = (s: Saving) => {
@@ -124,10 +175,7 @@ function SavingsPage() {
               const goal = s.goal_amount ? parseFloat(s.goal_amount) : null;
               const progress = goal ? Math.min((current / goal) * 100, 100) : null;
               return (
-                <div
-                  key={s.id}
-                  className="bg-white rounded-2xl p-5 shadow-sm"
-                >
+                <div key={s.id} className="bg-white rounded-2xl p-5 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-900">💵 {s.name}</span>
                     <span className="text-sm font-semibold text-gray-900">
@@ -144,11 +192,19 @@ function SavingsPage() {
                   )}
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setShowDeposit(s)}
+                      onClick={() => openDepositModal(s)}
                       className="text-xs px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg font-medium hover:bg-primary-100 transition-colors"
                     >
                       + Depositar
                     </button>
+                    {current > 0 && (
+                      <button
+                        onClick={() => openWithdrawModal(s)}
+                        className="text-xs px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors"
+                      >
+                        - Retirar
+                      </button>
+                    )}
                     <button
                       onClick={() => openEditModal(s)}
                       className="text-xs px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg font-medium hover:bg-gray-100 transition-colors"
@@ -201,7 +257,7 @@ function SavingsPage() {
       </Modal>
 
       {/* Deposit Modal */}
-      <Modal isOpen={showDeposit !== null} onClose={() => setShowDeposit(null)} title="Depositar">
+      <Modal isOpen={showDeposit !== null} onClose={() => setShowDeposit(null)} title="Depositar a ahorro">
         <form onSubmit={handleDeposit} className="space-y-4">
           {showDeposit && (
             <p className="text-sm text-gray-500">
@@ -209,15 +265,75 @@ function SavingsPage() {
             </p>
           )}
           <div>
-            <label htmlFor="dep-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto</label>
+            <label htmlFor="dep-source" className="block text-sm font-medium text-gray-700 mb-1">Sacar de</label>
+            <select
+              id="dep-source"
+              value={depositSourceId}
+              onChange={(e) => setDepositSourceId(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Seleccionar fuente...</option>
+              {sources.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({fmt(s.balance)} Bs)
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="dep-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto a depositar</label>
             <input id="dep-amount" type="number" min="0.01" step="0.01" value={depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)} required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
               placeholder="0.00" />
           </div>
-          <button type="submit" disabled={submitting}
+          <button type="submit" disabled={submitting || !depositSourceId}
             className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
             {submitting ? 'Depositando...' : 'Depositar'}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Withdraw Modal */}
+      <Modal isOpen={showWithdraw !== null} onClose={() => setShowWithdraw(null)} title="Retirar de ahorro">
+        <form onSubmit={handleWithdraw} className="space-y-4">
+          {showWithdraw && (
+            <p className="text-sm text-gray-500">
+              Ahorro: <span className="font-medium text-gray-700">{showWithdraw.name}</span>
+              <br />
+              Disponible: <span className="font-medium text-gray-700">{fmt(showWithdraw.current_amount)} Bs</span>
+            </p>
+          )}
+          <div>
+            <label htmlFor="wd-dest" className="block text-sm font-medium text-gray-700 mb-1">Enviar a</label>
+            <select
+              id="wd-dest"
+              value={withdrawDestId}
+              onChange={(e) => setWithdrawDestId(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Seleccionar destino...</option>
+              {sources.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({fmt(s.balance)} Bs)
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="wd-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto a retirar</label>
+            <input id="wd-amount" type="number" min="0.01" step="0.01"
+              max={showWithdraw ? parseFloat(showWithdraw.current_amount) : undefined}
+              value={withdrawAmount}
+              onChange={(e) => setWithdrawAmount(e.target.value)} required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
+              placeholder="0.00" />
+          </div>
+          <button type="submit" disabled={submitting || !withdrawDestId}
+            className="w-full py-2 px-4 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors">
+            {submitting ? 'Retirando...' : 'Retirar'}
           </button>
         </form>
       </Modal>

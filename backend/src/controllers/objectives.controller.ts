@@ -54,18 +54,47 @@ export async function update(req: AuthRequest, res: Response): Promise<void> {
 }
 
 export async function remove(req: AuthRequest, res: Response): Promise<void> {
+  const objective = await getObjectiveById(Number(req.params.id), req.userId!);
+  if (!objective) throw new AppError('Objective not found', 404);
+
+  // If objective has money assigned, return it to user's available balance
+  // (we just delete it; the money was "virtual" assignment not real balance deduction
+  // unless source-based assignment is used — in that case it was already deducted)
   const deleted = await deleteObjective(Number(req.params.id), req.userId!);
   if (!deleted) throw new AppError('Objective not found', 404);
-  res.json({ message: 'Objective deleted' });
+
+  res.json({
+    message: 'Objective deleted',
+    deleted_objective: {
+      id: objective.id,
+      name: objective.name,
+      target_amount: objective.target_amount,
+      current_amount: objective.current_amount,
+      status: objective.status,
+    },
+  });
 }
 
 export async function assignMoney(req: AuthRequest, res: Response): Promise<void> {
-  const { amount } = req.body;
+  const { amount, source_id } = req.body;
 
   if (!amount || amount <= 0) throw new AppError('Amount must be positive', 400);
+  if (!source_id) throw new AppError('source_id is required', 400);
+
+  // Verify source exists and belongs to user
+  const source = await getMoneySourceById(source_id, req.userId!);
+  if (!source) throw new AppError('Money source not found', 404);
+
+  // Deduct from money source
+  const deducted = await updateBalance(source_id, req.userId!, -amount);
+  if (!deducted) throw new AppError('Insufficient balance in selected source', 400);
 
   const objective = await assignMoneyToObjective(Number(req.params.id), req.userId!, amount);
-  if (!objective) throw new AppError('Objective not found or invalid amount', 400);
+  if (!objective) {
+    // Rollback balance if objective update fails
+    await updateBalance(source_id, req.userId!, amount);
+    throw new AppError('Objective not found or invalid amount', 400);
+  }
 
   // If objective was just completed, create achievement
   if (objective.status === 'completed' && objective.current_amount >= objective.target_amount) {
@@ -80,6 +109,29 @@ export async function assignMoney(req: AuthRequest, res: Response): Promise<void
   }
 
   res.json(objective);
+}
+
+export async function unassignMoney(req: AuthRequest, res: Response): Promise<void> {
+  const { amount, source_id } = req.body;
+
+  if (!amount || amount <= 0) throw new AppError('Amount must be positive', 400);
+  if (!source_id) throw new AppError('source_id is required — select where to return the money', 400);
+
+  // Verify source exists and belongs to user
+  const source = await getMoneySourceById(source_id, req.userId!);
+  if (!source) throw new AppError('Money source not found', 404);
+
+  const objective = await getObjectiveById(Number(req.params.id), req.userId!);
+  if (!objective) throw new AppError('Objective not found', 404);
+  if (objective.status === 'purchased') throw new AppError('Cannot unassign from a purchased objective', 400);
+
+  const result = await unassignMoneyFromObjective(Number(req.params.id), req.userId!, amount);
+  if (!result) throw new AppError('Amount exceeds currently assigned money', 400);
+
+  // Return money to the source
+  await updateBalance(source_id, req.userId!, amount);
+
+  res.json(result);
 }
 
 export async function markPurchased(req: AuthRequest, res: Response): Promise<void> {
@@ -117,19 +169,4 @@ export async function markPurchased(req: AuthRequest, res: Response): Promise<vo
   await unassignMoneyFromObjective(Number(req.params.id), req.userId!, purchaseAmount);
 
   res.json(updated);
-}
-
-export async function unassignMoney(req: AuthRequest, res: Response): Promise<void> {
-  const { amount } = req.body;
-
-  if (!amount || amount <= 0) throw new AppError('Amount must be positive', 400);
-
-  const objective = await getObjectiveById(Number(req.params.id), req.userId!);
-  if (!objective) throw new AppError('Objective not found', 404);
-  if (objective.status === 'purchased') throw new AppError('Cannot unassign from a purchased objective', 400);
-
-  const result = await unassignMoneyFromObjective(Number(req.params.id), req.userId!, amount);
-  if (!result) throw new AppError('Amount exceeds currently assigned money', 400);
-
-  res.json(result);
 }

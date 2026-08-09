@@ -35,7 +35,7 @@ function ObjectivesPage() {
   const [showPurchase, setShowPurchase] = useState<Objective | null>(null);
   const [showLinkProject, setShowLinkProject] = useState<Objective | null>(null);
 
-  // Sources for purchase modal
+  // Sources for modals
   const [sources, setSources] = useState<MoneySource[]>([]);
   // Projects for linking
   const [projects, setProjects] = useState<Project[]>([]);
@@ -44,7 +44,9 @@ function ObjectivesPage() {
   const [targetAmount, setTargetAmount] = useState('');
   const [description, setDescription] = useState('');
   const [assignAmount, setAssignAmount] = useState('');
+  const [assignSourceId, setAssignSourceId] = useState('');
   const [unassignAmount, setUnassignAmount] = useState('');
+  const [unassignSourceId, setUnassignSourceId] = useState('');
   const [purchaseSourceId, setPurchaseSourceId] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -90,14 +92,18 @@ function ObjectivesPage() {
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!showAssign) return;
+    if (!showAssign || !assignSourceId) return;
     setSubmitting(true);
     try {
       await apiFetch(`/objectives/${showAssign.id}/assign`, {
         method: 'POST',
-        body: JSON.stringify({ amount: parseFloat(assignAmount) }),
+        body: JSON.stringify({
+          amount: parseFloat(assignAmount),
+          source_id: parseInt(assignSourceId),
+        }),
       });
       setAssignAmount('');
+      setAssignSourceId('');
       setShowAssign(null);
       loadData();
     } catch {} finally { setSubmitting(false); }
@@ -105,14 +111,18 @@ function ObjectivesPage() {
 
   const handleUnassign = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!showUnassign) return;
+    if (!showUnassign || !unassignSourceId) return;
     setSubmitting(true);
     try {
       await apiFetch(`/objectives/${showUnassign.id}/unassign`, {
         method: 'POST',
-        body: JSON.stringify({ amount: parseFloat(unassignAmount) }),
+        body: JSON.stringify({
+          amount: parseFloat(unassignAmount),
+          source_id: parseInt(unassignSourceId),
+        }),
       });
       setUnassignAmount('');
+      setUnassignSourceId('');
       setShowUnassign(null);
       loadData();
     } catch {} finally { setSubmitting(false); }
@@ -131,6 +141,17 @@ function ObjectivesPage() {
       setShowPurchase(null);
       loadData();
     } catch {} finally { setSubmitting(false); }
+  };
+
+  const handleDelete = async (obj: Objective) => {
+    const confirmed = window.confirm(
+      `¿Estas seguro de eliminar el objetivo "${obj.name}"? Esta accion no se puede deshacer.`
+    );
+    if (!confirmed) return;
+    try {
+      await apiFetch(`/objectives/${obj.id}`, { method: 'DELETE' });
+      loadData();
+    } catch {}
   };
 
   const handleLinkToProject = async (e: React.FormEvent) => {
@@ -156,6 +177,16 @@ function ObjectivesPage() {
       });
       loadData();
     } catch {}
+  };
+
+  const openAssignModal = (obj: Objective) => {
+    loadSources();
+    setShowAssign(obj);
+  };
+
+  const openUnassignModal = (obj: Objective) => {
+    loadSources();
+    setShowUnassign(obj);
   };
 
   const openPurchaseModal = (obj: Objective) => {
@@ -188,8 +219,8 @@ function ObjectivesPage() {
     );
   }
 
-  const activeObjectives = objectives.filter((o) => o.status !== 'purchased');
-  const purchasedObjectives = objectives.filter((o) => o.status === 'purchased');
+  const activeObjectives = objectives.filter((o) => o.status !== 'purchased' && o.status !== 'deleted');
+  const historyObjectives = objectives.filter((o) => o.status === 'purchased' || o.status === 'deleted');
 
   return (
     <>
@@ -245,10 +276,10 @@ function ObjectivesPage() {
                   </div>
 
                   {/* Action buttons based on status */}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 items-center">
                     {obj.status !== 'completed' && (
                       <button
-                        onClick={() => setShowAssign(obj)}
+                        onClick={() => openAssignModal(obj)}
                         className="text-xs px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg font-medium hover:bg-primary-100 transition-colors"
                       >
                         + Asignar dinero
@@ -256,7 +287,7 @@ function ObjectivesPage() {
                     )}
                     {current > 0 && obj.status !== 'completed' && (
                       <button
-                        onClick={() => setShowUnassign(obj)}
+                        onClick={() => openUnassignModal(obj)}
                         className="text-xs px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors"
                       >
                         - Quitar dinero
@@ -271,13 +302,19 @@ function ObjectivesPage() {
                           🛒 Marcar como comprado
                         </button>
                         <button
-                          onClick={() => setShowUnassign(obj)}
+                          onClick={() => openUnassignModal(obj)}
                           className="text-xs px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors"
                         >
                           - Quitar dinero
                         </button>
                       </>
                     )}
+                    <button
+                      onClick={() => handleDelete(obj)}
+                      className="text-xs px-2 py-1.5 text-red-500 font-medium hover:text-red-700 transition-colors ml-auto"
+                    >
+                      Eliminar
+                    </button>
                   </div>
                 </div>
               );
@@ -293,15 +330,15 @@ function ObjectivesPage() {
           </section>
         )}
 
-        {/* Purchased History */}
-        {purchasedObjectives.length > 0 && (
+        {/* Historial */}
+        {historyObjectives.length > 0 && (
           <section className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-500 px-1">Historial de compras</h3>
-            {purchasedObjectives.map((obj) => (
+            <h3 className="text-sm font-medium text-gray-500 px-1">Historial</h3>
+            {historyObjectives.map((obj) => (
               <div key={obj.id} className="bg-white rounded-2xl p-4 shadow-sm opacity-75">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">
-                    🛒 {obj.name}
+                    {obj.status === 'purchased' ? '🛒' : '🗑️'} {obj.name}
                   </span>
                   <span className="text-sm text-purple-600 font-medium">
                     {fmt(obj.target_amount)} Bs
@@ -358,13 +395,32 @@ function ObjectivesPage() {
             </p>
           )}
           <div>
+            <label htmlFor="assign-source" className="block text-sm font-medium text-gray-700 mb-1">
+              Fuente de dinero
+            </label>
+            <select
+              id="assign-source"
+              value={assignSourceId}
+              onChange={(e) => setAssignSourceId(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Seleccionar fuente...</option>
+              {sources.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({fmt(s.balance)} Bs)
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label htmlFor="assign-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto a asignar</label>
             <input id="assign-amount" type="number" min="0.01" step="0.01" value={assignAmount}
               onChange={(e) => setAssignAmount(e.target.value)} required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
               placeholder="0.00" />
           </div>
-          <button type="submit" disabled={submitting}
+          <button type="submit" disabled={submitting || !assignSourceId}
             className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
             {submitting ? 'Asignando...' : 'Asignar'}
           </button>
@@ -382,6 +438,25 @@ function ObjectivesPage() {
             </p>
           )}
           <div>
+            <label htmlFor="unassign-source" className="block text-sm font-medium text-gray-700 mb-1">
+              Devolver a fuente
+            </label>
+            <select
+              id="unassign-source"
+              value={unassignSourceId}
+              onChange={(e) => setUnassignSourceId(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Seleccionar fuente...</option>
+              {sources.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({fmt(s.balance)} Bs)
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label htmlFor="unassign-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto a quitar</label>
             <input id="unassign-amount" type="number" min="0.01" step="0.01"
               max={showUnassign ? parseFloat(showUnassign.current_amount) : undefined}
@@ -390,7 +465,7 @@ function ObjectivesPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
               placeholder="0.00" />
           </div>
-          <button type="submit" disabled={submitting}
+          <button type="submit" disabled={submitting || !unassignSourceId}
             className="w-full py-2 px-4 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors">
             {submitting ? 'Quitando...' : 'Quitar'}
           </button>

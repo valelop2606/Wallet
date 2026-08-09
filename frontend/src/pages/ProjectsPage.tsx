@@ -119,6 +119,17 @@ function ProjectsPage() {
     } catch {} finally { setSubmitting(false); }
   };
 
+  const handleDelete = async (project: Project) => {
+    const confirmed = window.confirm(
+      `¿Estas seguro de eliminar el proyecto "${project.name}"? Los objetivos se desvincularan pero no se eliminaran.`
+    );
+    if (!confirmed) return;
+    try {
+      await apiFetch(`/projects/${project.id}`, { method: 'DELETE' });
+      loadData();
+    } catch {}
+  };
+
   const openAddObjective = (project: Project) => {
     loadAvailableObjectives();
     setShowAddObjective(project);
@@ -188,7 +199,7 @@ function ProjectsPage() {
 
                   {/* Action buttons */}
                   {p.status === 'active' && (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 items-center">
                       <button
                         onClick={() => openAddObjective(p)}
                         className="text-xs px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg font-medium hover:bg-primary-100 transition-colors"
@@ -206,6 +217,12 @@ function ProjectsPage() {
                         className="text-xs px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg font-medium hover:bg-gray-100 transition-colors"
                       >
                         Ver objetivos
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p)}
+                        className="text-xs px-2 py-1.5 text-red-500 font-medium hover:text-red-700 transition-colors ml-auto"
+                      >
+                        Eliminar
                       </button>
                     </div>
                   )}

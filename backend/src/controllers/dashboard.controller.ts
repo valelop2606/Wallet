@@ -6,6 +6,7 @@ import { getSavingsByUser, getTotalSavings } from '../models/saving.model';
 import { getActiveObjectives, getTotalAssignedToObjectives } from '../models/objective.model';
 import { getActiveProjects, getTotalAssignedToProjects } from '../models/project.model';
 import { getAchievementsByUser } from '../models/achievement.model';
+import { calculateDashboardMetrics, getReachableObjectives } from '../utils/dashboard.utils';
 
 export async function getDashboard(req: AuthRequest, res: Response): Promise<void> {
   const userId = req.userId!;
@@ -34,14 +35,13 @@ export async function getDashboard(req: AuthRequest, res: Response): Promise<voi
     getAchievementsByUser(userId),
   ]);
 
-  const totalAssigned = totalAssignedObjectives + totalAssignedProjects;
-  const availableMoney = totalBalance - totalAssigned;
-  const patrimony = totalBalance + totalSavings;
-
-  // Find reachable objectives (ones that can be completed with available money)
-  const reachableObjectives = activeObjectives.filter(
-    (obj) => Number(obj.target_amount) - Number(obj.current_amount) <= availableMoney
+  const { availableMoney, totalAssigned, patrimony } = calculateDashboardMetrics(
+    totalBalance,
+    totalSavings,
+    totalAssignedObjectives,
+    totalAssignedProjects
   );
+  const reachableObjectives = getReachableObjectives(activeObjectives, availableMoney);
 
   res.json({
     available_money: availableMoney,

@@ -1,4 +1,4 @@
-import { pool } from '../database/connection';
+import { db } from '../database/connection';
 
 export interface Transaction {
   id: number;
@@ -23,7 +23,7 @@ export interface CreateTransactionInput {
 }
 
 export async function createTransaction(userId: number, input: CreateTransactionInput): Promise<Transaction> {
-  const result = await pool.query(
+  const result = await db().query(
     `INSERT INTO transactions (user_id, type, amount, description, source_id, destination_id, date)
      VALUES ($1, $2, $3, $4, $5, $6, NOW())
      RETURNING *`,
@@ -44,7 +44,7 @@ export async function getTransactionsByUser(
   limit = 50,
   offset = 0
 ): Promise<Transaction[]> {
-  const result = await pool.query(
+  const result = await db().query(
     `SELECT t.*, 
        s.name as source_name, 
        d.name as destination_name
@@ -59,9 +59,13 @@ export async function getTransactionsByUser(
   return result.rows;
 }
 
-export async function getTransactionById(id: number, userId: number): Promise<Transaction | null> {
-  const result = await pool.query(
-    'SELECT * FROM transactions WHERE id = $1 AND user_id = $2',
+export async function getTransactionById(
+  id: number,
+  userId: number,
+  opts: { forUpdate?: boolean } = {}
+): Promise<Transaction | null> {
+  const result = await db().query(
+    `SELECT * FROM transactions WHERE id = $1 AND user_id = $2${opts.forUpdate ? ' FOR UPDATE' : ''}`,
     [id, userId]
   );
   return result.rows[0] || null;
@@ -72,7 +76,7 @@ export async function updateTransactionDescription(
   userId: number,
   description: string | null
 ): Promise<Transaction | null> {
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE transactions SET description = $1, updated_at = NOW()
      WHERE id = $2 AND user_id = $3 AND status = 'active'
      RETURNING *`,
@@ -86,7 +90,7 @@ export async function updateTransactionAmount(
   userId: number,
   newAmount: number
 ): Promise<Transaction | null> {
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE transactions SET amount = $1, updated_at = NOW()
      WHERE id = $2 AND user_id = $3 AND status = 'active'
      RETURNING *`,
@@ -96,7 +100,7 @@ export async function updateTransactionAmount(
 }
 
 export async function voidTransaction(id: number, userId: number): Promise<Transaction | null> {
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE transactions SET status = 'voided', updated_at = NOW()
      WHERE id = $1 AND user_id = $2 AND status = 'active'
      RETURNING *`,
@@ -106,7 +110,7 @@ export async function voidTransaction(id: number, userId: number): Promise<Trans
 }
 
 export async function getRecentTransactions(userId: number, limit = 5): Promise<Transaction[]> {
-  const result = await pool.query(
+  const result = await db().query(
     `SELECT t.*, 
        s.name as source_name, 
        d.name as destination_name

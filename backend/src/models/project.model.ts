@@ -1,4 +1,4 @@
-import { pool } from '../database/connection';
+import { db } from '../database/connection';
 
 export interface Project {
   id: number;
@@ -17,7 +17,7 @@ export interface CreateProjectInput {
 }
 
 export async function createProject(userId: number, input: CreateProjectInput): Promise<Project> {
-  const result = await pool.query(
+  const result = await db().query(
     `INSERT INTO projects (user_id, name, description)
      VALUES ($1, $2, $3)
      RETURNING *`,
@@ -27,7 +27,7 @@ export async function createProject(userId: number, input: CreateProjectInput): 
 }
 
 export async function getProjectsByUser(userId: number): Promise<Project[]> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM projects WHERE user_id = $1 ORDER BY created_at ASC',
     [userId]
   );
@@ -35,7 +35,7 @@ export async function getProjectsByUser(userId: number): Promise<Project[]> {
 }
 
 export async function getProjectById(id: number, userId: number): Promise<Project | null> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM projects WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
@@ -69,7 +69,7 @@ export async function updateProject(
   fields.push(`updated_at = NOW()`);
   values.push(id, userId);
 
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE projects SET ${fields.join(', ')} WHERE id = $${paramIndex++} AND user_id = $${paramIndex} RETURNING *`,
     values
   );
@@ -78,11 +78,11 @@ export async function updateProject(
 
 export async function deleteProject(id: number, userId: number): Promise<boolean> {
   // Unlink objectives first (set project_id to null)
-  await pool.query(
+  await db().query(
     'UPDATE objectives SET project_id = NULL WHERE project_id = $1 AND user_id = $2',
     [id, userId]
   );
-  const result = await pool.query(
+  const result = await db().query(
     'DELETE FROM projects WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
@@ -94,7 +94,7 @@ export async function assignMoneyToProject(
   userId: number,
   amount: number
 ): Promise<Project | null> {
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE projects SET assigned_amount = assigned_amount + $1, updated_at = NOW()
      WHERE id = $2 AND user_id = $3 AND assigned_amount + $1 >= 0
      RETURNING *`,
@@ -104,7 +104,7 @@ export async function assignMoneyToProject(
 }
 
 export async function getActiveProjects(userId: number): Promise<Project[]> {
-  const result = await pool.query(
+  const result = await db().query(
     `SELECT * FROM projects WHERE user_id = $1 AND status = 'active' ORDER BY created_at ASC`,
     [userId]
   );
@@ -112,7 +112,7 @@ export async function getActiveProjects(userId: number): Promise<Project[]> {
 }
 
 export async function getProjectWithProgress(id: number, userId: number): Promise<Project & { objectives_total: number; objectives_current: number } | null> {
-  const result = await pool.query(
+  const result = await db().query(
     `SELECT p.*,
        COALESCE(SUM(o.target_amount), 0) as objectives_total,
        COALESCE(SUM(o.current_amount), 0) as objectives_current
@@ -126,7 +126,7 @@ export async function getProjectWithProgress(id: number, userId: number): Promis
 }
 
 export async function getTotalAssignedToProjects(userId: number): Promise<number> {
-  const result = await pool.query(
+  const result = await db().query(
     `SELECT COALESCE(SUM(assigned_amount), 0) as total FROM projects WHERE user_id = $1 AND status = 'active'`,
     [userId]
   );

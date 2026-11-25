@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import { withTransaction } from '../database/connection';
 import {
   createTransaction,
   getTransactionsByUser,
@@ -12,9 +13,23 @@ import {
 import { updateBalance, getMoneySourceById } from '../models/moneySource.model';
 import { createModification, getModificationsByTransaction } from '../models/transactionModification.model';
 
+// Request bodies are validated and normalized by zod (see validation/schemas.ts).
+// Every handler that moves money runs inside `withTransaction`: if any step
+// fails (insufficient balance, missing row, DB error) all balance changes roll back.
+
+async function debit(sourceId: number, userId: number, amount: number, message: string): Promise<void> {
+  const updated = await updateBalance(sourceId, userId, -amount);
+  if (!updated) throw new AppError(message, 400);
+}
+
+async function credit(destinationId: number, userId: number, amount: number): Promise<void> {
+  const updated = await updateBalance(destinationId, userId, amount);
+  if (!updated) throw new AppError('Destination not found', 404);
+}
+
 export async function list(req: AuthRequest, res: Response): Promise<void> {
-  const limit = Math.min(Number(req.query.limit) || 50, 100);
-  const offset = Number(req.query.offset) || 0;
+  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+  const offset = Math.max(Number(req.query.offset) || 0, 0);
   const transactions = await getTransactionsByUser(req.userId!, limit, offset);
   res.json({ transactions });
 }
@@ -28,58 +43,24 @@ export async function getOne(req: AuthRequest, res: Response): Promise<void> {
 
 export async function create(req: AuthRequest, res: Response): Promise<void> {
   const { type, amount, description, source_id, destination_id } = req.body;
+  const userId = req.userId!;
 
-  if (!type || !amount) {
-    throw new AppError('Type and amount are required', 400);
-  }
+  const transaction = await withTransaction(async () => {
+    if (source_id && !(await getMoneySourceById(source_id, userId))) {
+      throw new AppError('Source not found', 404);
+    }
+    if (destination_id && !(await getMoneySourceById(destination_id, userId))) {
+      throw new AppError('Destination not found', 404);
+    }
 
-  if (!['income', 'expense', 'transfer'].includes(type)) {
-    throw new AppError('Type must be income, expense, or transfer', 400);
-  }
+    if (type === 'expense' || type === 'transfer') {
+      await debit(source_id, userId, amount, 'Insufficient balance in source');
+    }
+    if (type === 'income' || type === 'transfer') {
+      await credit(destination_id, userId, amount);
+    }
 
-  if (amount <= 0) {
-    throw new AppError('Amount must be positive', 400);
-  }
-
-  // Validate source/destination based on type
-  if (type === 'expense' && !source_id) {
-    throw new AppError('Source is required for expenses', 400);
-  }
-  if (type === 'income' && !destination_id) {
-    throw new AppError('Destination is required for income', 400);
-  }
-  if (type === 'transfer' && (!source_id || !destination_id)) {
-    throw new AppError('Source and destination are required for transfers', 400);
-  }
-
-  // Verify ownership of sources
-  if (source_id) {
-    const source = await getMoneySourceById(source_id, req.userId!);
-    if (!source) throw new AppError('Source not found', 404);
-  }
-  if (destination_id) {
-    const dest = await getMoneySourceById(destination_id, req.userId!);
-    if (!dest) throw new AppError('Destination not found', 404);
-  }
-
-  // Update balances
-  if (type === 'expense') {
-    const updated = await updateBalance(source_id, req.userId!, -amount);
-    if (!updated) throw new AppError('Insufficient balance in source', 400);
-  } else if (type === 'income') {
-    await updateBalance(destination_id, req.userId!, amount);
-  } else if (type === 'transfer') {
-    const updated = await updateBalance(source_id, req.userId!, -amount);
-    if (!updated) throw new AppError('Insufficient balance in source', 400);
-    await updateBalance(destination_id, req.userId!, amount);
-  }
-
-  const transaction = await createTransaction(req.userId!, {
-    type,
-    amount,
-    description,
-    source_id,
-    destination_id,
+    return createTransaction(userId, { type, amount, description, source_id, destination_id });
   });
 
   res.status(201).json(transaction);
@@ -88,59 +69,41 @@ export async function create(req: AuthRequest, res: Response): Promise<void> {
 export async function update(req: AuthRequest, res: Response): Promise<void> {
   const { description, amount } = req.body;
   const txId = Number(req.params.id);
+  const userId = req.userId!;
 
-  const transaction = await getTransactionById(txId, req.userId!);
-  if (!transaction) throw new AppError('Transaction not found', 404);
-  if (transaction.status !== 'active') throw new AppError('Cannot edit a voided transaction', 400);
+  await withTransaction(async () => {
+    const transaction = await getTransactionById(txId, userId, { forUpdate: true });
+    if (!transaction) throw new AppError('Transaction not found', 404);
+    if (transaction.status !== 'active') throw new AppError('Cannot edit a voided transaction', 400);
 
-  // Handle amount change with balance reversal
-  if (amount !== undefined && amount !== null) {
-    const newAmount = Number(amount);
-    if (newAmount <= 0) throw new AppError('Amount must be positive', 400);
+    if (amount !== undefined) {
+      const oldAmount = Number(transaction.amount);
+      const diff = Math.round((amount - oldAmount) * 100) / 100;
 
-    const oldAmount = Number(transaction.amount);
-    if (newAmount !== oldAmount) {
-      const diff = newAmount - oldAmount;
-
-      // Adjust balances based on the difference
-      if (transaction.type === 'expense' && transaction.source_id) {
-        // Expense increased: deduct more from source; decreased: refund to source
-        const updated = await updateBalance(transaction.source_id, req.userId!, -diff);
-        if (!updated) throw new AppError('Insufficient balance in source for this amount change', 400);
-      } else if (transaction.type === 'income' && transaction.destination_id) {
-        // Income increased: add more to destination; decreased: remove from destination
-        const updated = await updateBalance(transaction.destination_id, req.userId!, diff);
-        if (!updated) throw new AppError('Insufficient balance in destination for this amount change', 400);
-      } else if (transaction.type === 'transfer') {
-        if (transaction.source_id) {
-          const updated = await updateBalance(transaction.source_id, req.userId!, -diff);
-          if (!updated) throw new AppError('Insufficient balance in source for this amount change', 400);
+      if (diff !== 0) {
+        const msg = 'Insufficient balance for this amount change';
+        if (transaction.source_id && (transaction.type === 'expense' || transaction.type === 'transfer')) {
+          await debit(transaction.source_id, userId, diff, msg); // negative diff = refund
         }
-        if (transaction.destination_id) {
-          await updateBalance(transaction.destination_id, req.userId!, diff);
+        if (transaction.destination_id && (transaction.type === 'income' || transaction.type === 'transfer')) {
+          await debit(transaction.destination_id, userId, -diff, msg);
         }
+        await updateTransactionAmount(txId, userId, amount);
+        await createModification(txId, userId, 'amount', oldAmount.toFixed(2), amount.toFixed(2));
       }
-
-      // Update the amount
-      await updateTransactionAmount(txId, req.userId!, newAmount);
-
-      // Log the modification
-      await createModification(txId, req.userId!, 'amount', oldAmount.toFixed(2), newAmount.toFixed(2));
     }
-  }
 
-  // Handle description change
-  if (description !== undefined) {
-    const oldDesc = transaction.description || '';
-    const newDesc = description || '';
-    if (oldDesc !== newDesc) {
-      await updateTransactionDescription(txId, req.userId!, description || null);
-      await createModification(txId, req.userId!, 'description', oldDesc || null, newDesc || null);
+    if (description !== undefined) {
+      const oldDesc = transaction.description || '';
+      const newDesc = description || '';
+      if (oldDesc !== newDesc) {
+        await updateTransactionDescription(txId, userId, newDesc || null);
+        await createModification(txId, userId, 'description', oldDesc || null, newDesc || null);
+      }
     }
-  }
+  });
 
-  // Return updated transaction with modifications
-  const updated = await getTransactionById(txId, req.userId!);
+  const updated = await getTransactionById(txId, userId);
   const modifications = await getModificationsByTransaction(txId);
   res.json({ ...updated, modifications });
 }
@@ -154,26 +117,29 @@ export async function getModifications(req: AuthRequest, res: Response): Promise
 }
 
 export async function voidOne(req: AuthRequest, res: Response): Promise<void> {
-  const transaction = await getTransactionById(Number(req.params.id), req.userId!);
-  if (!transaction) throw new AppError('Transaction not found', 404);
-  if (transaction.status === 'voided') throw new AppError('Transaction already voided', 400);
+  const txId = Number(req.params.id);
+  const userId = req.userId!;
 
-  // Reverse the balance changes
-  if (transaction.type === 'expense' && transaction.source_id) {
-    await updateBalance(transaction.source_id, req.userId!, Number(transaction.amount));
-  } else if (transaction.type === 'income' && transaction.destination_id) {
-    const updated = await updateBalance(transaction.destination_id, req.userId!, -Number(transaction.amount));
-    if (!updated) throw new AppError('Cannot void: insufficient balance in destination', 400);
-  } else if (transaction.type === 'transfer') {
-    if (transaction.destination_id) {
-      const updated = await updateBalance(transaction.destination_id, req.userId!, -Number(transaction.amount));
-      if (!updated) throw new AppError('Cannot void: insufficient balance in destination', 400);
+  const voided = await withTransaction(async () => {
+    // Flip status first: the conditional UPDATE locks the row, so two
+    // concurrent void requests can never both reverse the balances.
+    const transaction = await voidTransaction(txId, userId);
+    if (!transaction) {
+      const existing = await getTransactionById(txId, userId);
+      if (!existing) throw new AppError('Transaction not found', 404);
+      throw new AppError('Transaction already voided', 400);
     }
-    if (transaction.source_id) {
-      await updateBalance(transaction.source_id, req.userId!, Number(transaction.amount));
-    }
-  }
 
-  const voided = await voidTransaction(Number(req.params.id), req.userId!);
+    const amount = Number(transaction.amount);
+    const msg = 'Cannot void: insufficient balance in destination';
+    if (transaction.destination_id && (transaction.type === 'income' || transaction.type === 'transfer')) {
+      await debit(transaction.destination_id, userId, amount, msg);
+    }
+    if (transaction.source_id && (transaction.type === 'expense' || transaction.type === 'transfer')) {
+      await credit(transaction.source_id, userId, amount);
+    }
+    return transaction;
+  });
+
   res.json(voided);
 }

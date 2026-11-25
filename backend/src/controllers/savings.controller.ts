@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import { withTransaction } from '../database/connection';
 import {
   createSaving,
   getSavingsByUser,
@@ -60,34 +61,40 @@ export async function remove(req: AuthRequest, res: Response): Promise<void> {
 
 export async function deposit(req: AuthRequest, res: Response): Promise<void> {
   const { amount, source_id } = req.body;
+  const userId = req.userId!;
 
-  if (!amount || amount <= 0) throw new AppError('Amount must be positive', 400);
+  const saving = await withTransaction(async () => {
+    // If source_id provided, deduct from that money source
+    if (source_id) {
+      const source = await getMoneySourceById(source_id, userId);
+      if (!source) throw new AppError('Source not found', 404);
+      const updated = await updateBalance(source_id, userId, -amount);
+      if (!updated) throw new AppError('Insufficient balance in source', 400);
+    }
 
-  // If source_id provided, deduct from that money source
-  if (source_id) {
-    const source = await getMoneySourceById(source_id, req.userId!);
-    if (!source) throw new AppError('Source not found', 404);
-    const updated = await updateBalance(source_id, req.userId!, -amount);
-    if (!updated) throw new AppError('Insufficient balance in source', 400);
-  }
+    const result = await depositToSaving(Number(req.params.id), userId, amount);
+    if (!result) throw new AppError('Saving not found', 404);
+    return result;
+  });
 
-  const saving = await depositToSaving(Number(req.params.id), req.userId!, amount);
-  if (!saving) throw new AppError('Saving not found', 404);
   res.json(saving);
 }
 
 export async function withdraw(req: AuthRequest, res: Response): Promise<void> {
   const { amount, destination_id } = req.body;
+  const userId = req.userId!;
 
-  if (!amount || amount <= 0) throw new AppError('Amount must be positive', 400);
+  const saving = await withTransaction(async () => {
+    const result = await withdrawFromSaving(Number(req.params.id), userId, amount);
+    if (!result) throw new AppError('Insufficient saving balance or saving not found', 400);
 
-  const saving = await withdrawFromSaving(Number(req.params.id), req.userId!, amount);
-  if (!saving) throw new AppError('Insufficient saving balance or saving not found', 400);
-
-  // If destination_id provided, add to that money source
-  if (destination_id) {
-    await updateBalance(destination_id, req.userId!, amount);
-  }
+    // If destination_id provided, add to that money source
+    if (destination_id) {
+      const updated = await updateBalance(destination_id, userId, amount);
+      if (!updated) throw new AppError('Destination not found', 404);
+    }
+    return result;
+  });
 
   res.json(saving);
 }

@@ -28,3 +28,7 @@ coverage/
 
 # TypeScript
 *.tsbuildinfo
+
+# AI tooling (local only)
+.claude/
+.kiro/

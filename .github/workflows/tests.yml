@@ -1,4 +1,4 @@
-name: Tests
+name: CI
 
 on:
   push:
@@ -9,20 +9,24 @@ permissions:
   contents: read
 
 jobs:
-  tests:
+  backend:
     runs-on: ubuntu-latest
     steps:
-      - name: Descargar repositorio
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Preparar Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
 
-      - name: Instalar dependencias
+      - name: Install dependencies
         run: npm ci
 
-      - name: Ejecutar pruebas
+      - name: Typecheck
+        run: npx tsc --noEmit -p backend
+
+      - name: Tests (unit + API integration on in-memory Postgres)
         run: npm test --workspace=backend
+
+      - name: Build
+        run: npm run build:backend

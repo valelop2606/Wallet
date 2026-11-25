@@ -17,3 +17,7 @@ export const config = {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
 };
+
+if (config.nodeEnv === 'production' && config.jwt.secret === 'dev-secret-change-me') {
+  console.warn('[security] JWT_SECRET is not set: using the insecure dev default');
+}

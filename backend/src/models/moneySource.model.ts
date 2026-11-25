@@ -1,4 +1,4 @@
-import { pool } from '../database/connection';
+import { db } from '../database/connection';
 
 export interface MoneySource {
   id: number;
@@ -19,7 +19,7 @@ export interface CreateMoneySourceInput {
 }
 
 export async function createMoneySource(userId: number, input: CreateMoneySourceInput): Promise<MoneySource> {
-  const result = await pool.query(
+  const result = await db().query(
     `INSERT INTO money_sources (user_id, name, type, balance, description)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
@@ -29,7 +29,7 @@ export async function createMoneySource(userId: number, input: CreateMoneySource
 }
 
 export async function getMoneySourcesByUser(userId: number): Promise<MoneySource[]> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM money_sources WHERE user_id = $1 ORDER BY created_at ASC',
     [userId]
   );
@@ -37,7 +37,7 @@ export async function getMoneySourcesByUser(userId: number): Promise<MoneySource
 }
 
 export async function getMoneySourceById(id: number, userId: number): Promise<MoneySource | null> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM money_sources WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
@@ -71,7 +71,7 @@ export async function updateMoneySource(
   fields.push(`updated_at = NOW()`);
   values.push(id, userId);
 
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE money_sources SET ${fields.join(', ')} WHERE id = $${paramIndex++} AND user_id = $${paramIndex} RETURNING *`,
     values
   );
@@ -79,7 +79,7 @@ export async function updateMoneySource(
 }
 
 export async function deleteMoneySource(id: number, userId: number): Promise<boolean> {
-  const result = await pool.query(
+  const result = await db().query(
     'DELETE FROM money_sources WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
@@ -87,7 +87,7 @@ export async function deleteMoneySource(id: number, userId: number): Promise<boo
 }
 
 export async function updateBalance(id: number, userId: number, amount: number): Promise<MoneySource | null> {
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE money_sources SET balance = balance + $1, updated_at = NOW()
      WHERE id = $2 AND user_id = $3 AND balance + $1 >= 0
      RETURNING *`,
@@ -97,7 +97,7 @@ export async function updateBalance(id: number, userId: number, amount: number):
 }
 
 export async function getTotalBalance(userId: number): Promise<number> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT COALESCE(SUM(balance), 0) as total FROM money_sources WHERE user_id = $1',
     [userId]
   );

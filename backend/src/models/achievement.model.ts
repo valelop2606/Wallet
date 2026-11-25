@@ -1,4 +1,4 @@
-import { pool } from '../database/connection';
+import { db } from '../database/connection';
 
 export interface Achievement {
   id: number;
@@ -20,7 +20,7 @@ export async function createAchievement(
   description?: string,
   amount?: number
 ): Promise<Achievement> {
-  const result = await pool.query(
+  const result = await db().query(
     `INSERT INTO achievements (user_id, type, reference_id, name, description, amount)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
@@ -30,7 +30,7 @@ export async function createAchievement(
 }
 
 export async function getAchievementsByUser(userId: number): Promise<Achievement[]> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM achievements WHERE user_id = $1 ORDER BY completed_at DESC',
     [userId]
   );
@@ -38,7 +38,7 @@ export async function getAchievementsByUser(userId: number): Promise<Achievement
 }
 
 export async function getAchievementsByType(userId: number, type: 'objective' | 'project'): Promise<Achievement[]> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM achievements WHERE user_id = $1 AND type = $2 ORDER BY completed_at DESC',
     [userId, type]
   );

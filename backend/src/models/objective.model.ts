@@ -1,4 +1,4 @@
-import { pool } from '../database/connection';
+import { db } from '../database/connection';
 
 export interface Objective {
   id: number;
@@ -22,7 +22,7 @@ export interface CreateObjectiveInput {
 }
 
 export async function createObjective(userId: number, input: CreateObjectiveInput): Promise<Objective> {
-  const result = await pool.query(
+  const result = await db().query(
     `INSERT INTO objectives (user_id, name, description, target_amount, project_id)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
@@ -32,7 +32,7 @@ export async function createObjective(userId: number, input: CreateObjectiveInpu
 }
 
 export async function getObjectivesByUser(userId: number): Promise<Objective[]> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM objectives WHERE user_id = $1 ORDER BY created_at ASC',
     [userId]
   );
@@ -40,7 +40,7 @@ export async function getObjectivesByUser(userId: number): Promise<Objective[]> 
 }
 
 export async function getObjectiveById(id: number, userId: number): Promise<Objective | null> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM objectives WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
@@ -48,7 +48,7 @@ export async function getObjectiveById(id: number, userId: number): Promise<Obje
 }
 
 export async function getObjectivesByProject(projectId: number, userId: number): Promise<Objective[]> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM objectives WHERE project_id = $1 AND user_id = $2 ORDER BY priority ASC, created_at ASC',
     [projectId, userId]
   );
@@ -90,7 +90,7 @@ export async function updateObjective(
   fields.push(`updated_at = NOW()`);
   values.push(id, userId);
 
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE objectives SET ${fields.join(', ')} WHERE id = $${paramIndex++} AND user_id = $${paramIndex} RETURNING *`,
     values
   );
@@ -98,7 +98,7 @@ export async function updateObjective(
 }
 
 export async function deleteObjective(id: number, userId: number): Promise<boolean> {
-  const result = await pool.query(
+  const result = await db().query(
     'DELETE FROM objectives WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
@@ -110,7 +110,7 @@ export async function assignMoneyToObjective(
   userId: number,
   amount: number
 ): Promise<Objective | null> {
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE objectives 
      SET current_amount = current_amount + $1,
          status = CASE 
@@ -131,7 +131,7 @@ export async function unassignMoneyFromObjective(
   userId: number,
   amount: number
 ): Promise<Objective | null> {
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE objectives 
      SET current_amount = current_amount - $1,
          status = CASE 
@@ -148,7 +148,7 @@ export async function unassignMoneyFromObjective(
 }
 
 export async function getActiveObjectives(userId: number): Promise<Objective[]> {
-  const result = await pool.query(
+  const result = await db().query(
     `SELECT * FROM objectives WHERE user_id = $1 AND status IN ('pending', 'in_progress') ORDER BY created_at ASC`,
     [userId]
   );
@@ -156,7 +156,7 @@ export async function getActiveObjectives(userId: number): Promise<Objective[]> 
 }
 
 export async function getTotalAssignedToObjectives(userId: number): Promise<number> {
-  const result = await pool.query(
+  const result = await db().query(
     `SELECT COALESCE(SUM(current_amount), 0) as total FROM objectives WHERE user_id = $1 AND status IN ('pending', 'in_progress', 'completed')`,
     [userId]
   );

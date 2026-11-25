@@ -1,4 +1,4 @@
-import { pool } from '../database/connection';
+import { db } from '../database/connection';
 
 export interface Saving {
   id: number;
@@ -21,7 +21,7 @@ export interface CreateSavingInput {
 }
 
 export async function createSaving(userId: number, input: CreateSavingInput): Promise<Saving> {
-  const result = await pool.query(
+  const result = await db().query(
     `INSERT INTO savings (user_id, name, description, current_amount, goal_amount, storage_source_id)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
@@ -38,7 +38,7 @@ export async function createSaving(userId: number, input: CreateSavingInput): Pr
 }
 
 export async function getSavingsByUser(userId: number): Promise<Saving[]> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM savings WHERE user_id = $1 ORDER BY created_at ASC',
     [userId]
   );
@@ -46,7 +46,7 @@ export async function getSavingsByUser(userId: number): Promise<Saving[]> {
 }
 
 export async function getSavingById(id: number, userId: number): Promise<Saving | null> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT * FROM savings WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
@@ -84,7 +84,7 @@ export async function updateSaving(
   fields.push(`updated_at = NOW()`);
   values.push(id, userId);
 
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE savings SET ${fields.join(', ')} WHERE id = $${paramIndex++} AND user_id = $${paramIndex} RETURNING *`,
     values
   );
@@ -92,7 +92,7 @@ export async function updateSaving(
 }
 
 export async function deleteSaving(id: number, userId: number): Promise<boolean> {
-  const result = await pool.query(
+  const result = await db().query(
     'DELETE FROM savings WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
@@ -100,7 +100,7 @@ export async function deleteSaving(id: number, userId: number): Promise<boolean>
 }
 
 export async function depositToSaving(id: number, userId: number, amount: number): Promise<Saving | null> {
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE savings SET current_amount = current_amount + $1, updated_at = NOW()
      WHERE id = $2 AND user_id = $3
      RETURNING *`,
@@ -110,7 +110,7 @@ export async function depositToSaving(id: number, userId: number, amount: number
 }
 
 export async function withdrawFromSaving(id: number, userId: number, amount: number): Promise<Saving | null> {
-  const result = await pool.query(
+  const result = await db().query(
     `UPDATE savings SET current_amount = current_amount - $1, updated_at = NOW()
      WHERE id = $2 AND user_id = $3 AND current_amount >= $1
      RETURNING *`,
@@ -120,7 +120,7 @@ export async function withdrawFromSaving(id: number, userId: number, amount: num
 }
 
 export async function getTotalSavings(userId: number): Promise<number> {
-  const result = await pool.query(
+  const result = await db().query(
     'SELECT COALESCE(SUM(current_amount), 0) as total FROM savings WHERE user_id = $1',
     [userId]
   );

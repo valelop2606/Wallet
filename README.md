@@ -1,278 +1,121 @@
 # Wallet
 
-Aplicacion de gestion financiera personal para organizar dinero, registrar movimientos y alcanzar objetivos de ahorro y compra.
+Personal finance app to organize money across accounts, track income/expenses/transfers and save toward goals.
+Full-stack TypeScript: **Express + PostgreSQL API** and **React** frontend, deployed on Render, Vercel and Neon.
 
-## Demo en Produccion
-
-| Servicio | URL |
-|----------|-----|
+| | URL |
+|---|---|
 | Frontend | [wallet-frontend-lake.vercel.app](https://wallet-frontend-lake.vercel.app) |
-| Backend API | [wallet-backend-rwj5.onrender.com](https://wallet-backend-rwj5.onrender.com/health) |
-| Base de datos | Neon PostgreSQL (free tier permanente) |
+| API health | [wallet-backend-rwj5.onrender.com/health](https://wallet-backend-rwj5.onrender.com/health) |
+| API docs (Swagger) | [wallet-backend-rwj5.onrender.com/api/docs](https://wallet-backend-rwj5.onrender.com/api/docs) |
 
-> El backend en Render free se suspende tras ~15 min de inactividad. La primera peticion puede tardar ~30s.
+> Render free tier sleeps after ~15 min idle; the first request can take ~30 s.
 
----
+## Engineering highlights
 
-## Funcionalidades
+- **Atomic money operations** — every balance change (transactions, edits, voids, savings, objectives) runs in a single Postgres transaction via `withTransaction()` + `AsyncLocalStorage`. A failure at any step rolls back everything; no half-applied transfers.
+- **Race-safe voids and edits** — conditional `UPDATE … WHERE status = 'active'` / `SELECT … FOR UPDATE` so a transaction can't be reversed twice.
+- **DB-level invariants** — `CHECK (balance >= 0)` and conditional updates guarantee balances never go negative.
+- **Request validation with zod** — typed, normalized bodies and field-level `400` errors.
+- **Security** — JWT auth, bcrypt, helmet headers, rate-limited auth endpoints, body size limit, per-user data isolation.
+- **Integration tests on real Postgres without Docker** — supertest + [PGlite](https://pglite.dev) (Postgres compiled to WASM) run the real schema in memory. Tests cover auth, balance math, validation and rollback scenarios.
+- **OpenAPI / Swagger UI** at `/api/docs`.
+- **CI** — GitHub Actions runs typecheck and tests on every push and PR.
 
-### Autenticacion
-- Registro de usuario con email y contrasena
-- Login con JWT (token valido por 7 dias)
-- Rutas protegidas en frontend y backend
+## Features
 
-### Fuentes de Dinero
-- Crear multiples fuentes (billetera fisica, banco, etc.)
-- Ver saldo individual y total
-- Agregar y retirar dinero
+- **Auth** — register/login with JWT (7-day tokens).
+- **Money sources** — wallets, bank accounts, etc. with individual and total balance.
+- **Transactions** — income, expense and transfer; edit amount/description with full change history; void with automatic balance reversal.
+- **Objectives** — assign money progressively; *completed* (money reserved) vs *purchased* (real expense recorded).
+- **Projects** — group related objectives and track joint progress.
+- **Savings** — savings funds with optional goals, separate from available money.
+- **Dashboard** — available money, breakdown by source, reserved money, reachable goals, net worth, recent activity.
+- **Achievements** — history of completed objectives and projects.
 
-### Transacciones
-- Registrar ingresos, gastos y transferencias entre fuentes
-- Historial completo con filtros
-- Anulacion de transacciones (revierte el saldo)
+## Tech stack
 
-### Objetivos (Completar vs Comprar)
-- Crear objetivos con monto meta
-- Asignar dinero progresivamente
-- Estado **Completado**: junto todo el dinero, pero sigue reservado
-- Estado **Comprado**: se registro el gasto real y el dinero sale de una fuente
-- Quitar dinero asignado y devolverlo al disponible
+| Layer | Tech |
+|---|---|
+| Backend | Node.js, Express 4, TypeScript, pg, zod, helmet, express-rate-limit |
+| Database | PostgreSQL (Neon) |
+| Auth | JWT + bcrypt |
+| Frontend | React 18, TypeScript, Tailwind CSS, Vite |
+| Testing | node:test, supertest, PGlite |
+| Infra | Render (API), Vercel (frontend), Neon (DB), GitHub Actions |
 
-### Proyectos
-- Agrupar objetivos relacionados bajo un proyecto
-- Seguimiento de progreso conjunto
-
-### Ahorros
-- Fondos de ahorro con meta opcional
-- Separados del dinero disponible
-
-### Dashboard
-- Dinero disponible en tiempo real
-- Desglose por fuentes
-- Dinero asignado a objetivos
-- Objetivos alcanzables con el saldo actual
-- Patrimonio total
-- Movimientos recientes
-- **Acciones rapidas** (Agregar/Quitar) sin salir del inicio
-
-### Logros
-- Historial de objetivos completados y proyectos finalizados
-
----
-
-## Tech Stack
-
-| Capa | Tecnologia |
-|------|-----------|
-| Frontend | React 18 + TypeScript + Tailwind CSS + Vite 5 |
-| Backend | Node.js + Express 4 + TypeScript |
-| Base de datos | PostgreSQL (Neon) |
-| Autenticacion | JWT + bcrypt |
-| Package Manager | npm workspaces (monorepo) |
-
----
-
-## Estructura del Proyecto
+## Project structure
 
 ```
-Wallet/
-├── package.json            # Workspace root
-├── backend/
-│   ├── src/
-│   │   ├── index.ts            # Entry point (Express server)
-│   │   ├── config/env.ts       # Variables de entorno
-│   │   ├── controllers/        # Logica de request/response
-│   │   ├── models/             # Acceso a datos (queries SQL)
-│   │   ├── routes/             # Definicion de rutas API
-│   │   ├── middleware/         # Auth, error handler, async wrapper
-│   │   └── database/
-│   │       ├── connection.ts   # Pool PostgreSQL
-│   │       ├── schema.sql      # DDL completo
-│   │       └── seed.ts         # Script para crear tablas remotas
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/
-│   ├── src/
-│   │   ├── main.tsx            # Entry point
-│   │   ├── App.tsx             # Rutas (React Router)
-│   │   ├── components/         # Componentes reutilizables
-│   │   ├── pages/              # Paginas de la app
-│   │   ├── hooks/              # Custom hooks (useAuth)
-│   │   └── services/api.ts     # Cliente HTTP
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── tailwind.config.js
-└── .kiro/steering/             # Configuracion AI assistant
+backend/
+  src/
+    app.ts              # Express app factory (used by server and tests)
+    index.ts            # Server entry point
+    controllers/        # Request handlers
+    models/             # SQL data access (parameterized queries)
+    routes/             # Routes + validation middleware
+    validation/         # zod schemas
+    middleware/         # auth, validation, async wrapper, error handler
+    database/           # pool + withTransaction, schema.sql, seed
+    docs/openapi.ts     # OpenAPI spec
+  tests/                # unit + API integration tests
+frontend/
+  src/                  # pages, components, hooks, API client
 ```
 
----
+## Running locally
 
-## Instalacion Local
-
-### Requisitos
-- Node.js 18+
-- PostgreSQL 14+ (local o remota)
-
-### Pasos
+Requirements: Node 20+, PostgreSQL 14+.
 
 ```bash
-# 1. Clonar el repo
 git clone https://github.com/valelop2606/Wallet.git
 cd Wallet
-
-# 2. Instalar dependencias
 npm install
 
-# 3. Configurar variables de entorno
-cp backend/.env.example backend/.env
-# Editar backend/.env con tus credenciales de PostgreSQL
-
-# 4. Crear las tablas
-# Opcion A: con psql
+cp backend/.env.example backend/.env   # fill in DB credentials and JWT_SECRET
 psql -U postgres -d wallet -f backend/src/database/schema.sql
 
-# Opcion B: con el script (para DB remotas)
-cd backend
-npx ts-node src/database/seed.ts "postgresql://user:pass@host/dbname?sslmode=require"
-cd ..
-
-# 5. Iniciar en desarrollo
-npm run dev
+npm run dev        # API on :3001, frontend on :5173
 ```
 
-### URLs de Desarrollo
+### Tests
 
-| Servicio | URL |
-|----------|-----|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:3001 |
-| Health check | http://localhost:3001/health |
-
----
-
-## Variables de Entorno
-
-### Backend (`backend/.env`)
-
-```env
-PORT=3001
-NODE_ENV=development
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=wallet
-DB_USER=postgres
-DB_PASSWORD=tu_password
-JWT_SECRET=un_string_largo_y_seguro
-JWT_EXPIRES_IN=7d
+```bash
+npm test --workspace=backend   # no database needed
 ```
 
-En produccion se usa `DATABASE_URL` en lugar de las variables individuales de DB.
+### Environment variables (backend)
 
-### Frontend (`frontend/.env.production`)
+| Variable | Description |
+|---|---|
+| `PORT` | API port (default 3000) |
+| `DATABASE_URL` | Postgres connection string (production) — or `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` |
+| `JWT_SECRET` | **Required in production** |
+| `JWT_EXPIRES_IN` | Token lifetime (default `7d`) |
+| `CORS_ORIGIN` | Comma-separated allowed origins (default: any) |
 
-```env
-VITE_API_URL=https://wallet-backend-rwj5.onrender.com/api
-```
+Frontend: `VITE_API_URL` (only needed in production; dev uses the Vite proxy).
 
-En desarrollo no se necesita (usa proxy de Vite hacia `localhost:3001/api`).
+## API
 
----
+Full interactive reference at **`/api/docs`**. Summary:
 
-## API Endpoints
-
-### Auth
-| Metodo | Ruta | Descripcion |
-|--------|------|-------------|
-| POST | /api/auth/register | Crear cuenta |
-| POST | /api/auth/login | Iniciar sesion |
-
-### Money Sources
-| Metodo | Ruta | Descripcion |
-|--------|------|-------------|
-| GET | /api/sources | Listar fuentes |
-| POST | /api/sources | Crear fuente |
-| PUT | /api/sources/:id | Actualizar fuente |
-| DELETE | /api/sources/:id | Eliminar fuente |
-
-### Transactions
-| Metodo | Ruta | Descripcion |
-|--------|------|-------------|
-| GET | /api/transactions | Listar transacciones |
-| POST | /api/transactions | Crear transaccion |
-| PUT | /api/transactions/:id | Actualizar transaccion |
-| POST | /api/transactions/:id/void | Anular transaccion |
-
-### Objectives
-| Metodo | Ruta | Descripcion |
-|--------|------|-------------|
-| GET | /api/objectives | Listar objetivos |
-| POST | /api/objectives | Crear objetivo |
-| PUT | /api/objectives/:id | Actualizar objetivo |
-| DELETE | /api/objectives/:id | Eliminar objetivo |
-| POST | /api/objectives/:id/assign | Asignar dinero |
-| POST | /api/objectives/:id/unassign | Quitar dinero |
-| POST | /api/objectives/:id/purchase | Marcar como comprado |
-
-### Projects
-| Metodo | Ruta | Descripcion |
-|--------|------|-------------|
-| GET | /api/projects | Listar proyectos |
-| POST | /api/projects | Crear proyecto |
-| PUT | /api/projects/:id | Actualizar proyecto |
-| DELETE | /api/projects/:id | Eliminar proyecto |
-
-### Savings
-| Metodo | Ruta | Descripcion |
-|--------|------|-------------|
-| GET | /api/savings | Listar ahorros |
-| POST | /api/savings | Crear ahorro |
-| PUT | /api/savings/:id | Actualizar ahorro |
-| DELETE | /api/savings/:id | Eliminar ahorro |
-
-### Dashboard
-| Metodo | Ruta | Descripcion |
-|--------|------|-------------|
-| GET | /api/dashboard | Resumen completo del usuario |
-
----
+| Resource | Endpoints |
+|---|---|
+| Auth | `POST /api/auth/register`, `POST /api/auth/login` |
+| Money sources | `GET/POST /api/sources`, `GET/PUT/DELETE /api/sources/:id` |
+| Transactions | `GET/POST /api/transactions`, `GET/PUT /api/transactions/:id`, `GET /api/transactions/:id/modifications`, `POST /api/transactions/:id/void` |
+| Objectives | CRUD + `POST /api/objectives/:id/{assign,unassign,purchase}` |
+| Projects | CRUD |
+| Savings | CRUD + `POST /api/savings/:id/{deposit,withdraw}` |
+| Dashboard | `GET /api/dashboard` |
 
 ## Deploy
 
-### Backend — Render
-- Web Service conectado a `main`
-- Root Directory: `.` (raiz del monorepo)
-- Build: `npm run render-build`
-- Start: `npm start`
-- Variables: `DATABASE_URL` (connection string de Neon), `NODE_ENV=production`
+- **API — Render**: build `npm run render-build`, start `npm start`, env `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`.
+- **Frontend — Vercel**: root `frontend`, framework Vite.
+- **DB — Neon**: schema in `backend/src/database/schema.sql`.
 
-### Frontend — Vercel
-- Framework: Vite
-- Root Directory: `frontend`
-- Build: `npm run build` (ejecuta `tsc -b && vite build`)
-- La URL del backend se configura en `frontend/.env.production`
+## Author
 
-### Base de datos — Neon
-- PostgreSQL free tier (permanente)
-- Schema en `backend/src/database/schema.sql`
-
----
-
-## Scripts Disponibles
-
-```bash
-# Desde la raiz
-npm run dev              # Backend + Frontend simultaneo
-npm run dev:backend      # Solo backend (ts-node-dev)
-npm run dev:frontend     # Solo frontend (Vite)
-npm run build            # Build completo (frontend + backend)
-npm run build:backend    # Compilar TypeScript backend
-npm run build:frontend   # Build produccion frontend
-npm run render-build     # Build para Render (instala devDeps + build completo)
-npm start                # Arranca el backend compilado (produccion)
-```
-
----
-
-## Autor
-
-Desarrollado por **Valeria Lopez** — [@valelop2606](https://github.com/valelop2606)
+**Valeria López** — [@valelop2606](https://github.com/valelop2606)

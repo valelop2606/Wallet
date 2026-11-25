@@ -21,6 +21,19 @@ export function errorHandler(
     return;
   }
 
+  // Malformed JSON / oversized body from express.json()
+  const status = (err as { status?: number }).status;
+  if (status === 400 || status === 413) {
+    res.status(status).json({ error: status === 413 ? 'Payload too large' : 'Malformed JSON body' });
+    return;
+  }
+
+  // Postgres CHECK constraint violation (e.g. balance would go negative)
+  if ((err as { code?: string }).code === '23514') {
+    res.status(400).json({ error: 'Operation violates a data constraint' });
+    return;
+  }
+
   console.error('Unexpected error:', err);
   res.status(500).json({ error: 'Internal server error' });
 }

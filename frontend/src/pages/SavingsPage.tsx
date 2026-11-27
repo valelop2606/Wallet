@@ -152,7 +152,7 @@ function SavingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-sm">Cargando...</div>
+        <div className="w-6 h-6 rounded-full border-2 border-primary-600 border-r-transparent animate-spin" role="status" aria-label="Cargando" />
       </div>
     );
   }
@@ -162,9 +162,9 @@ function SavingsPage() {
       <PageHeader title="Mis ahorros" />
       <div className="max-w-lg mx-auto px-4 py-5 space-y-4">
         {/* Total */}
-        <section className="bg-white rounded-2xl p-5 shadow-sm">
+        <section className="card">
           <p className="text-sm text-gray-500 mb-1">Total ahorrado</p>
-          <p className="text-2xl font-bold text-gray-900">{fmt(total)} Bs</p>
+          <p className="text-2xl font-bold text-gray-900 amount">{fmt(total)} Bs</p>
         </section>
 
         {/* Savings List */}
@@ -175,17 +175,17 @@ function SavingsPage() {
               const goal = s.goal_amount ? parseFloat(s.goal_amount) : null;
               const progress = goal ? Math.min((current / goal) * 100, 100) : null;
               return (
-                <div key={s.id} className="bg-white rounded-2xl p-5 shadow-sm">
+                <div key={s.id} className="card">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-900">💵 {s.name}</span>
-                    <span className="text-sm font-semibold text-gray-900">
+                    <span className="text-sm font-semibold text-gray-900 amount">
                       {fmt(s.current_amount)}{goal ? ` / ${fmt(s.goal_amount!)}` : ''} Bs
                     </span>
                   </div>
                   {progress !== null && (
-                    <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
+                    <div className="progress mb-3">
                       <div
-                        className="bg-primary-500 h-2 rounded-full transition-all"
+                        className="bg-primary-500 h-2 rounded-full transition-[width] duration-500 ease-out"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -193,21 +193,21 @@ function SavingsPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => openDepositModal(s)}
-                      className="text-xs px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg font-medium hover:bg-primary-100 transition-colors"
+                      className="chip-primary"
                     >
                       + Depositar
                     </button>
                     {current > 0 && (
                       <button
                         onClick={() => openWithdrawModal(s)}
-                        className="text-xs px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors"
+                        className="chip-danger"
                       >
                         - Retirar
                       </button>
                     )}
                     <button
                       onClick={() => openEditModal(s)}
-                      className="text-xs px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                      className="chip-neutral"
                     >
                       Editar
                     </button>
@@ -217,7 +217,7 @@ function SavingsPage() {
             })}
           </section>
         ) : (
-          <section className="bg-white rounded-2xl p-5 shadow-sm">
+          <section className="card">
             <EmptyState
               message="Aun no tienes ahorros. Crea tu primer espacio de ahorro."
               actionLabel="+ Nuevo ahorro"
@@ -228,7 +228,7 @@ function SavingsPage() {
 
         <button
           onClick={() => setShowCreate(true)}
-          className="w-full py-3 bg-white rounded-2xl shadow-sm text-primary-600 font-medium text-sm hover:bg-gray-50 transition-colors"
+          className="btn-outline h-12 rounded-2xl"
         >
           + Nuevo ahorro
         </button>
@@ -238,19 +238,19 @@ function SavingsPage() {
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Nuevo ahorro">
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label htmlFor="sav-name" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+            <label htmlFor="sav-name" className="label">Nombre</label>
             <input id="sav-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="Ej: Fondo de emergencia" />
           </div>
           <div>
-            <label htmlFor="sav-goal" className="block text-sm font-medium text-gray-700 mb-1">Meta (opcional)</label>
+            <label htmlFor="sav-goal" className="label">Meta (opcional)</label>
             <input id="sav-goal" type="number" min="0" step="0.01" value={goalAmount} onChange={(e) => setGoalAmount(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="0.00" />
           </div>
           <button type="submit" disabled={submitting}
-            className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+            className="btn-primary">
             {submitting ? 'Guardando...' : 'Guardar'}
           </button>
         </form>
@@ -265,13 +265,13 @@ function SavingsPage() {
             </p>
           )}
           <div>
-            <label htmlFor="dep-source" className="block text-sm font-medium text-gray-700 mb-1">Sacar de</label>
+            <label htmlFor="dep-source" className="label">Sacar de</label>
             <select
               id="dep-source"
               value={depositSourceId}
               onChange={(e) => setDepositSourceId(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
             >
               <option value="">Seleccionar fuente...</option>
               {sources.map((s) => (
@@ -282,14 +282,14 @@ function SavingsPage() {
             </select>
           </div>
           <div>
-            <label htmlFor="dep-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto a depositar</label>
+            <label htmlFor="dep-amount" className="label">Monto a depositar</label>
             <input id="dep-amount" type="number" min="0.01" step="0.01" value={depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
+              className="input input-lg"
               placeholder="0.00" />
           </div>
           <button type="submit" disabled={submitting || !depositSourceId}
-            className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+            className="btn-primary">
             {submitting ? 'Depositando...' : 'Depositar'}
           </button>
         </form>
@@ -306,13 +306,13 @@ function SavingsPage() {
             </p>
           )}
           <div>
-            <label htmlFor="wd-dest" className="block text-sm font-medium text-gray-700 mb-1">Enviar a</label>
+            <label htmlFor="wd-dest" className="label">Enviar a</label>
             <select
               id="wd-dest"
               value={withdrawDestId}
               onChange={(e) => setWithdrawDestId(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
             >
               <option value="">Seleccionar destino...</option>
               {sources.map((s) => (
@@ -323,16 +323,16 @@ function SavingsPage() {
             </select>
           </div>
           <div>
-            <label htmlFor="wd-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto a retirar</label>
+            <label htmlFor="wd-amount" className="label">Monto a retirar</label>
             <input id="wd-amount" type="number" min="0.01" step="0.01"
               max={showWithdraw ? parseFloat(showWithdraw.current_amount) : undefined}
               value={withdrawAmount}
               onChange={(e) => setWithdrawAmount(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
+              className="input input-lg"
               placeholder="0.00" />
           </div>
           <button type="submit" disabled={submitting || !withdrawDestId}
-            className="w-full py-2 px-4 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors">
+            className="btn-danger">
             {submitting ? 'Retirando...' : 'Retirar'}
           </button>
         </form>
@@ -342,20 +342,20 @@ function SavingsPage() {
       <Modal isOpen={showEdit !== null} onClose={() => setShowEdit(null)} title="Editar ahorro">
         <form onSubmit={handleEdit} className="space-y-4">
           <div>
-            <label htmlFor="edit-sav-name" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+            <label htmlFor="edit-sav-name" className="label">Nombre</label>
             <input id="edit-sav-name" type="text" value={editName} onChange={(e) => setEditName(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="Nombre del ahorro" />
           </div>
           <div>
-            <label htmlFor="edit-sav-goal" className="block text-sm font-medium text-gray-700 mb-1">Meta (opcional)</label>
+            <label htmlFor="edit-sav-goal" className="label">Meta (opcional)</label>
             <input id="edit-sav-goal" type="number" min="0" step="0.01" value={editGoal} onChange={(e) => setEditGoal(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="Dejar vacio para quitar meta" />
             <p className="text-xs text-gray-400 mt-1">Deja vacio para quitar la meta.</p>
           </div>
           <button type="submit" disabled={submitting}
-            className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+            className="btn-primary">
             {submitting ? 'Guardando...' : 'Guardar cambios'}
           </button>
         </form>

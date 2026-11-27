@@ -78,7 +78,7 @@ function MoneySourcesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-sm">Cargando...</div>
+        <div className="w-6 h-6 rounded-full border-2 border-primary-600 border-r-transparent animate-spin" role="status" aria-label="Cargando" />
       </div>
     );
   }
@@ -87,9 +87,9 @@ function MoneySourcesPage() {
     <>
       <div className="max-w-lg mx-auto px-4 py-2 space-y-4">
         {/* Total */}
-        <section className="bg-white rounded-2xl p-5 shadow-sm">
+        <section className="card">
           <p className="text-sm text-gray-500 mb-1">Total disponible</p>
-          <p className="text-2xl font-bold text-gray-900">{fmt(total)} Bs</p>
+          <p className="text-2xl font-bold text-gray-900 amount">{fmt(total)} Bs</p>
         </section>
 
         {/* Sources List */}
@@ -104,12 +104,12 @@ function MoneySourcesPage() {
                     <p className="text-xs text-gray-400">{typeLabels[s.type] || s.type}</p>
                   </div>
                 </div>
-                <span className="text-sm font-semibold text-gray-900">{fmt(s.balance)} Bs</span>
+                <span className="text-sm font-semibold text-gray-900 amount">{fmt(s.balance)} Bs</span>
               </div>
             ))}
           </section>
         ) : (
-          <section className="bg-white rounded-2xl p-5 shadow-sm">
+          <section className="card">
             <EmptyState
               message="Todavía no tienes dinero registrado. Agrega tu primera fuente para comenzar."
               actionLabel="+ Nueva fuente"
@@ -121,7 +121,7 @@ function MoneySourcesPage() {
         {/* Add Button */}
         <button
           onClick={() => setShowCreate(true)}
-          className="w-full py-3 bg-white rounded-2xl shadow-sm text-primary-600 font-medium text-sm hover:bg-gray-50 transition-colors"
+          className="btn-outline h-12 rounded-2xl"
         >
           + Nueva fuente
         </button>
@@ -131,7 +131,7 @@ function MoneySourcesPage() {
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Nueva fuente">
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label htmlFor="source-name" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="source-name" className="label">
               Nombre
             </label>
             <input
@@ -140,19 +140,19 @@ function MoneySourcesPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="Ej: Billetera"
             />
           </div>
           <div>
-            <label htmlFor="source-type" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="source-type" className="label">
               Tipo
             </label>
             <select
               id="source-type"
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
             >
               <option value="physical">Física</option>
               <option value="bank">Banco</option>
@@ -160,7 +160,7 @@ function MoneySourcesPage() {
             </select>
           </div>
           <div>
-            <label htmlFor="source-balance" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="source-balance" className="label">
               Saldo inicial
             </label>
             <input
@@ -170,14 +170,14 @@ function MoneySourcesPage() {
               step="0.01"
               value={balance}
               onChange={(e) => setBalance(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="0.00"
             />
           </div>
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
+            className="btn-primary"
           >
             {submitting ? 'Guardando...' : 'Guardar'}
           </button>

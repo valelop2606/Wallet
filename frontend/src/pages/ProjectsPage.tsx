@@ -153,7 +153,7 @@ function ProjectsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-sm">Cargando...</div>
+        <div className="w-6 h-6 rounded-full border-2 border-primary-600 border-r-transparent animate-spin" role="status" aria-label="Cargando" />
       </div>
     );
   }
@@ -168,7 +168,7 @@ function ProjectsPage() {
               const current = parseFloat(p.progress_current);
               const progress = total > 0 ? Math.min((current / total) * 100, 100) : 0;
               return (
-                <div key={p.id} className="bg-white rounded-2xl p-5 shadow-sm">
+                <div key={p.id} className="card">
                   <div className="flex items-center justify-between mb-2">
                     <button
                       onClick={() => openDetail(p)}
@@ -202,19 +202,19 @@ function ProjectsPage() {
                     <div className="flex flex-wrap gap-2 items-center">
                       <button
                         onClick={() => openAddObjective(p)}
-                        className="text-xs px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg font-medium hover:bg-primary-100 transition-colors"
+                        className="chip-primary"
                       >
                         + Agregar objetivo existente
                       </button>
                       <button
                         onClick={() => setShowCreateObjective(p)}
-                        className="text-xs px-3 py-1.5 bg-green-50 text-green-700 rounded-lg font-medium hover:bg-green-100 transition-colors"
+                        className="chip-success"
                       >
                         + Crear nuevo objetivo
                       </button>
                       <button
                         onClick={() => openDetail(p)}
-                        className="text-xs px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                        className="chip-neutral"
                       >
                         Ver objetivos
                       </button>
@@ -231,7 +231,7 @@ function ProjectsPage() {
             })}
           </section>
         ) : (
-          <section className="bg-white rounded-2xl p-5 shadow-sm">
+          <section className="card">
             <EmptyState
               message="¿Algo grande en mente? Crea un proyecto y empieza a construirlo."
               actionLabel="+ Nuevo proyecto"
@@ -242,7 +242,7 @@ function ProjectsPage() {
 
         <button
           onClick={() => setShowCreate(true)}
-          className="w-full py-3 bg-white rounded-2xl shadow-sm text-primary-600 font-medium text-sm hover:bg-gray-50 transition-colors"
+          className="btn-outline h-12 rounded-2xl"
         >
           + Nuevo proyecto
         </button>
@@ -252,19 +252,19 @@ function ProjectsPage() {
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Nuevo proyecto">
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label htmlFor="proj-name" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+            <label htmlFor="proj-name" className="label">Nombre</label>
             <input id="proj-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="Ej: Primera casa" />
           </div>
           <div>
-            <label htmlFor="proj-desc" className="block text-sm font-medium text-gray-700 mb-1">Descripcion (opcional)</label>
+            <label htmlFor="proj-desc" className="label">Descripcion (opcional)</label>
             <input id="proj-desc" type="text" value={description} onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="Una descripcion corta..." />
           </div>
           <button type="submit" disabled={submitting}
-            className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+            className="btn-primary">
             {submitting ? 'Guardando...' : 'Guardar'}
           </button>
         </form>
@@ -372,26 +372,26 @@ function ProjectsPage() {
               Proyecto: <span className="font-medium text-gray-700">{showCreateObjective.name}</span>
             </p>
             <div>
-              <label htmlFor="new-obj-name" className="block text-sm font-medium text-gray-700 mb-1">Nombre del objetivo</label>
+              <label htmlFor="new-obj-name" className="label">Nombre del objetivo</label>
               <input id="new-obj-name" type="text" value={objName} onChange={(e) => setObjName(e.target.value)} required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="input"
                 placeholder="Ej: Audifonos" />
             </div>
             <div>
-              <label htmlFor="new-obj-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto objetivo</label>
+              <label htmlFor="new-obj-amount" className="label">Monto objetivo</label>
               <input id="new-obj-amount" type="number" min="0.01" step="0.01" value={objAmount}
                 onChange={(e) => setObjAmount(e.target.value)} required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="input"
                 placeholder="800.00" />
             </div>
             <div>
-              <label htmlFor="new-obj-desc" className="block text-sm font-medium text-gray-700 mb-1">Descripcion (opcional)</label>
+              <label htmlFor="new-obj-desc" className="label">Descripcion (opcional)</label>
               <input id="new-obj-desc" type="text" value={objDescription} onChange={(e) => setObjDescription(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="input"
                 placeholder="Una descripcion corta..." />
             </div>
             <button type="submit" disabled={submitting}
-              className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+              className="btn-primary">
               {submitting ? 'Creando...' : 'Crear objetivo'}
             </button>
           </form>

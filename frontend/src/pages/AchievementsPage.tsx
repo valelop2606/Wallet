@@ -30,7 +30,7 @@ function AchievementsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-sm">Cargando...</div>
+        <div className="w-6 h-6 rounded-full border-2 border-primary-600 border-r-transparent animate-spin" role="status" aria-label="Cargando" />
       </div>
     );
   }
@@ -49,8 +49,8 @@ function AchievementsPage() {
         {achievements.length > 0 ? (
           <>
             {objectives.length > 0 && (
-              <section className="bg-white rounded-2xl p-5 shadow-sm">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Objetivos completados</h3>
+              <section className="card">
+                <h3 className="card-title">Objetivos completados</h3>
                 <div className="space-y-3">
                   {objectives.map((a) => (
                     <div key={a.id} className="flex items-center justify-between py-1">
@@ -68,8 +68,8 @@ function AchievementsPage() {
             )}
 
             {projects.length > 0 && (
-              <section className="bg-white rounded-2xl p-5 shadow-sm">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Proyectos completados</h3>
+              <section className="card">
+                <h3 className="card-title">Proyectos completados</h3>
                 <div className="space-y-3">
                   {projects.map((a) => (
                     <div key={a.id} className="flex items-center justify-between py-1">
@@ -87,7 +87,7 @@ function AchievementsPage() {
             )}
           </>
         ) : (
-          <section className="bg-white rounded-2xl p-5 shadow-sm">
+          <section className="card">
             <EmptyState message="Aquí aparecerán tus objetivos y proyectos completados." />
           </section>
         )}

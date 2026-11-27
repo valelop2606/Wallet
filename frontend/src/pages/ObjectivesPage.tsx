@@ -214,7 +214,7 @@ function ObjectivesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-sm">Cargando...</div>
+        <div className="w-6 h-6 rounded-full border-2 border-primary-600 border-r-transparent animate-spin" role="status" aria-label="Cargando" />
       </div>
     );
   }
@@ -236,17 +236,17 @@ function ObjectivesPage() {
               return (
                 <div
                   key={obj.id}
-                  className="bg-white rounded-2xl p-5 shadow-sm"
+                  className="card"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-900">
                       {status.icon} {obj.name}
                     </span>
-                    <span className="text-sm font-semibold text-gray-900">
+                    <span className="text-sm font-semibold text-gray-900 amount">
                       {fmt(obj.current_amount)} / {fmt(obj.target_amount)} Bs
                     </span>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
+                  <div className="progress mb-3">
                     <div
                       className={`h-2 rounded-full transition-all ${
                         obj.status === 'completed' ? 'bg-green-500' : 'bg-primary-500'
@@ -280,7 +280,7 @@ function ObjectivesPage() {
                     {obj.status !== 'completed' && (
                       <button
                         onClick={() => openAssignModal(obj)}
-                        className="text-xs px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg font-medium hover:bg-primary-100 transition-colors"
+                        className="chip-primary"
                       >
                         + Asignar dinero
                       </button>
@@ -288,7 +288,7 @@ function ObjectivesPage() {
                     {current > 0 && obj.status !== 'completed' && (
                       <button
                         onClick={() => openUnassignModal(obj)}
-                        className="text-xs px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors"
+                        className="chip-danger"
                       >
                         - Quitar dinero
                       </button>
@@ -297,13 +297,13 @@ function ObjectivesPage() {
                       <>
                         <button
                           onClick={() => openPurchaseModal(obj)}
-                          className="text-xs px-3 py-1.5 bg-green-50 text-green-700 rounded-lg font-medium hover:bg-green-100 transition-colors"
+                          className="chip-success"
                         >
                           🛒 Marcar como comprado
                         </button>
                         <button
                           onClick={() => openUnassignModal(obj)}
-                          className="text-xs px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors"
+                          className="chip-danger"
                         >
                           - Quitar dinero
                         </button>
@@ -321,7 +321,7 @@ function ObjectivesPage() {
             })}
           </section>
         ) : (
-          <section className="bg-white rounded-2xl p-5 shadow-sm">
+          <section className="card">
             <EmptyState
               message="Tus suenos empiezan aqui. Crea tu primer objetivo."
               actionLabel="+ Nuevo objetivo"
@@ -333,7 +333,7 @@ function ObjectivesPage() {
         {/* Historial */}
         {historyObjectives.length > 0 && (
           <section className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-500 px-1">Historial</h3>
+            <h3 className="card-title px-1 mb-0">Historial</h3>
             {historyObjectives.map((obj) => (
               <div key={obj.id} className="bg-white rounded-2xl p-4 shadow-sm opacity-75">
                 <div className="flex items-center justify-between">
@@ -351,7 +351,7 @@ function ObjectivesPage() {
 
         <button
           onClick={() => setShowCreate(true)}
-          className="w-full py-3 bg-white rounded-2xl shadow-sm text-primary-600 font-medium text-sm hover:bg-gray-50 transition-colors"
+          className="btn-outline h-12 rounded-2xl"
         >
           + Nuevo objetivo
         </button>
@@ -361,26 +361,26 @@ function ObjectivesPage() {
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Nuevo objetivo">
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label htmlFor="obj-name" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+            <label htmlFor="obj-name" className="label">Nombre</label>
             <input id="obj-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="Ej: Audifonos" />
           </div>
           <div>
-            <label htmlFor="obj-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto</label>
+            <label htmlFor="obj-amount" className="label">Monto</label>
             <input id="obj-amount" type="number" min="0.01" step="0.01" value={targetAmount}
               onChange={(e) => setTargetAmount(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="800.00" />
           </div>
           <div>
-            <label htmlFor="obj-desc" className="block text-sm font-medium text-gray-700 mb-1">Descripcion (opcional)</label>
+            <label htmlFor="obj-desc" className="label">Descripcion (opcional)</label>
             <input id="obj-desc" type="text" value={description} onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="Una descripcion corta..." />
           </div>
           <button type="submit" disabled={submitting}
-            className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+            className="btn-primary">
             {submitting ? 'Guardando...' : 'Guardar'}
           </button>
         </form>
@@ -395,7 +395,7 @@ function ObjectivesPage() {
             </p>
           )}
           <div>
-            <label htmlFor="assign-source" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="assign-source" className="label">
               Fuente de dinero
             </label>
             <select
@@ -403,7 +403,7 @@ function ObjectivesPage() {
               value={assignSourceId}
               onChange={(e) => setAssignSourceId(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
             >
               <option value="">Seleccionar fuente...</option>
               {sources.map((s) => (
@@ -414,14 +414,14 @@ function ObjectivesPage() {
             </select>
           </div>
           <div>
-            <label htmlFor="assign-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto a asignar</label>
+            <label htmlFor="assign-amount" className="label">Monto a asignar</label>
             <input id="assign-amount" type="number" min="0.01" step="0.01" value={assignAmount}
               onChange={(e) => setAssignAmount(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
+              className="input input-lg"
               placeholder="0.00" />
           </div>
           <button type="submit" disabled={submitting || !assignSourceId}
-            className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+            className="btn-primary">
             {submitting ? 'Asignando...' : 'Asignar'}
           </button>
         </form>
@@ -438,7 +438,7 @@ function ObjectivesPage() {
             </p>
           )}
           <div>
-            <label htmlFor="unassign-source" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="unassign-source" className="label">
               Devolver a fuente
             </label>
             <select
@@ -446,7 +446,7 @@ function ObjectivesPage() {
               value={unassignSourceId}
               onChange={(e) => setUnassignSourceId(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
             >
               <option value="">Seleccionar fuente...</option>
               {sources.map((s) => (
@@ -457,16 +457,16 @@ function ObjectivesPage() {
             </select>
           </div>
           <div>
-            <label htmlFor="unassign-amount" className="block text-sm font-medium text-gray-700 mb-1">Monto a quitar</label>
+            <label htmlFor="unassign-amount" className="label">Monto a quitar</label>
             <input id="unassign-amount" type="number" min="0.01" step="0.01"
               max={showUnassign ? parseFloat(showUnassign.current_amount) : undefined}
               value={unassignAmount}
               onChange={(e) => setUnassignAmount(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
+              className="input input-lg"
               placeholder="0.00" />
           </div>
           <button type="submit" disabled={submitting || !unassignSourceId}
-            className="w-full py-2 px-4 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors">
+            className="btn-danger">
             {submitting ? 'Quitando...' : 'Quitar'}
           </button>
         </form>
@@ -486,7 +486,7 @@ function ObjectivesPage() {
             </div>
           )}
           <div>
-            <label htmlFor="purchase-source" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="purchase-source" className="label">
               ¿De donde salio el dinero?
             </label>
             <select
@@ -494,7 +494,7 @@ function ObjectivesPage() {
               value={purchaseSourceId}
               onChange={(e) => setPurchaseSourceId(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
             >
               <option value="">Seleccionar fuente...</option>
               {sources.map((s) => (
@@ -505,7 +505,7 @@ function ObjectivesPage() {
             </select>
           </div>
           <button type="submit" disabled={submitting || !purchaseSourceId}
-            className="w-full py-2 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+            className="btn-success">
             {submitting ? 'Procesando...' : '🛒 Confirmar compra'}
           </button>
         </form>
@@ -522,7 +522,7 @@ function ObjectivesPage() {
           {projects.length > 0 ? (
             <>
               <div>
-                <label htmlFor="link-project" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="link-project" className="label">
                   Seleccionar proyecto
                 </label>
                 <select
@@ -530,7 +530,7 @@ function ObjectivesPage() {
                   value={selectedProjectId}
                   onChange={(e) => setSelectedProjectId(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="input"
                 >
                   <option value="">Seleccionar...</option>
                   {projects.map((p) => (
@@ -539,7 +539,7 @@ function ObjectivesPage() {
                 </select>
               </div>
               <button type="submit" disabled={submitting || !selectedProjectId}
-                className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
+                className="btn-primary">
                 {submitting ? 'Asignando...' : 'Asignar a proyecto'}
               </button>
             </>

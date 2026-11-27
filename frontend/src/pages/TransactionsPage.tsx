@@ -186,7 +186,7 @@ function TransactionsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-sm">Cargando...</div>
+        <div className="w-6 h-6 rounded-full border-2 border-primary-600 border-r-transparent animate-spin" role="status" aria-label="Cargando" />
       </div>
     );
   }
@@ -225,7 +225,7 @@ function TransactionsPage() {
         {/* Transaction History */}
         {transactions.length > 0 ? (
           <section className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Historial</h3>
+            <h3 className="card-title mb-2">Historial</h3>
             {transactions.map((t) => (
               <div key={t.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openHistoryModal(t)}>
@@ -260,7 +260,7 @@ function TransactionsPage() {
             ))}
           </section>
         ) : (
-          <section className="bg-white rounded-2xl p-5 shadow-sm">
+          <section className="card">
             <EmptyState message="Sin movimientos registrados." />
           </section>
         )}
@@ -274,7 +274,7 @@ function TransactionsPage() {
       >
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label htmlFor="tx-amount" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="tx-amount" className="label">
               Monto
             </label>
             <input
@@ -285,14 +285,14 @@ function TransactionsPage() {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
+              className="input input-lg"
               placeholder="0.00"
             />
           </div>
 
           {(txType === 'expense' || txType === 'transfer') && (
             <div>
-              <label htmlFor="tx-source" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="tx-source" className="label">
                 {txType === 'transfer' ? 'Origen' : 'Sale de'}
               </label>
               <select
@@ -300,7 +300,7 @@ function TransactionsPage() {
                 value={sourceId}
                 onChange={(e) => setSourceId(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="input"
               >
                 <option value="">Seleccionar fuente</option>
                 {sources.map((s) => (
@@ -312,7 +312,7 @@ function TransactionsPage() {
 
           {(txType === 'income' || txType === 'transfer') && (
             <div>
-              <label htmlFor="tx-dest" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="tx-dest" className="label">
                 {txType === 'transfer' ? 'Destino' : 'Recibir en'}
               </label>
               <select
@@ -320,7 +320,7 @@ function TransactionsPage() {
                 value={destinationId}
                 onChange={(e) => setDestinationId(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="input"
               >
                 <option value="">Seleccionar fuente</option>
                 {sources.map((s) => (
@@ -331,7 +331,7 @@ function TransactionsPage() {
           )}
 
           <div>
-            <label htmlFor="tx-desc" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="tx-desc" className="label">
               Descripcion (opcional)
             </label>
             <input
@@ -339,7 +339,7 @@ function TransactionsPage() {
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="Ej: Mini, Almuerzo..."
             />
           </div>
@@ -347,7 +347,7 @@ function TransactionsPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
+            className="btn-primary"
           >
             {submitting ? 'Guardando...' : 'Guardar'}
           </button>
@@ -375,7 +375,7 @@ function TransactionsPage() {
           )}
 
           <div>
-            <label htmlFor="edit-amount" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="edit-amount" className="label">
               Monto
             </label>
             <input
@@ -386,13 +386,13 @@ function TransactionsPage() {
               value={editAmount}
               onChange={(e) => setEditAmount(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
+              className="input input-lg"
               placeholder="0.00"
             />
           </div>
 
           <div>
-            <label htmlFor="edit-desc" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="edit-desc" className="label">
               Descripcion (opcional)
             </label>
             <input
@@ -400,7 +400,7 @@ function TransactionsPage() {
               type="text"
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="input"
               placeholder="Descripcion..."
             />
           </div>

@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
+import Icon from '../components/Icon';
 
 function PlansPage() {
   return (
@@ -7,26 +8,24 @@ function PlansPage() {
       <PageHeader title="Planes" />
       <div className="max-w-lg mx-auto px-4 pt-3">
         {/* Sub-navigation tabs */}
-        <div className="flex gap-2 mb-4">
+        <div className="segmented mb-4">
           <NavLink
             to="/plans/objectives"
             className={({ isActive }) =>
-              `flex-1 text-center py-2 text-sm font-medium rounded-lg transition-colors ${
-                isActive ? 'bg-primary-50 text-primary-600' : 'text-gray-500 hover:bg-gray-50'
-              }`
+              `segmented-item${isActive ? ' active' : ''}`
             }
           >
-            🎯 Objetivos
+            <Icon name="target" size={16} />
+            Objetivos
           </NavLink>
           <NavLink
             to="/plans/projects"
             className={({ isActive }) =>
-              `flex-1 text-center py-2 text-sm font-medium rounded-lg transition-colors ${
-                isActive ? 'bg-primary-50 text-primary-600' : 'text-gray-500 hover:bg-gray-50'
-              }`
+              `segmented-item${isActive ? ' active' : ''}`
             }
           >
-            🚀 Proyectos
+            <Icon name="folder" size={16} />
+            Proyectos
           </NavLink>
         </div>
       </div>
